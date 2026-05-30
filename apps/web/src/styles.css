@@ -214,6 +214,14 @@ label {
   flex-direction: column;
   gap: 14px;
 }
+/* Wraps the turn banner + hand + play/pass buttons. On mobile it becomes a
+   pinned bottom bar (see the narrow-screen media query). */
+.action-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+}
 .seats {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
@@ -449,11 +457,35 @@ label {
   font-size: 10px;
 }
 
-/* Narrow screens: shrink seats and make the table taller so 6-8 fit. */
+/* Narrow screens: shrink the table and pin the hand + controls to the bottom. */
 @media (max-width: 560px) {
   .table-rect {
-    aspect-ratio: 0.85 / 1;
+    /* shorter than before so more of the table shows above the pinned controls */
+    aspect-ratio: 1 / 1;
     max-width: 100%;
+  }
+  /* Pinned bottom bar: select + play without ever scrolling; table scrolls above. */
+  .action-dock {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    gap: 6px;
+    margin: 0 -16px -16px;
+    padding: 6px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg);
+    border-top: 3px solid var(--shadow);
+    box-shadow: 0 -7px 16px #0009;
+  }
+  .action-dock .banner {
+    margin-top: 0;
+  }
+  .action-dock .hand {
+    padding: 6px;
+    gap: 4px;
+  }
+  .hand .card {
+    width: 44px;
+    height: 62px;
   }
   .rect-felt {
     inset: 15% 10%;

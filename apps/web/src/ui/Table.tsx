@@ -283,7 +283,7 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
         ) : view.phase === 'round_over' ? (
           <RoundOver view={view} />
         ) : (
-          <>
+          <div className="action-dock">
             <div className={`banner ${yourTurn ? 'you' : ''}`}>
               {banner}
               {view.phase === 'playing' && secs != null && (
@@ -336,7 +336,7 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
                 </>
               )}
             </div>
-          </>
+          </div>
         )}
       </div>
     </Screen>
