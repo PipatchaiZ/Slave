@@ -1,7 +1,7 @@
 import { EV, type GameView } from '@slave/engine';
 import { socket } from '../net';
 import { sfx } from '../audio';
-import { ROLE_LABEL } from './shared';
+import { ROLE_ICON, ROLE_LABEL } from './shared';
 
 export function RoundOver({ view }: { view: GameView }) {
   const isHost = view.hostId === view.yourId;
@@ -56,6 +56,7 @@ export function MatchOver({ view, onLeave }: { view: GameView; onLeave: () => vo
             <tr key={p.id}>
               <td>{i + 1}</td>
               <td>
+                {p.role ? `${ROLE_ICON[p.role]} ` : ''}
                 {p.name}
                 {p.isYou ? ' (คุณ)' : ''}
               </td>
@@ -91,11 +92,11 @@ function ResultTable({ view }: { view: GameView }) {
           return (
             <tr key={r.playerId} className={r.regicided ? 'regicide' : ''}>
               <td>
-                {ROLE_LABEL[r.role]}
+                {ROLE_ICON[r.role]} {ROLE_LABEL[r.role]}
                 {r.regicided ? ' ⚔' : ''}
               </td>
               <td>
-                {r.name}
+                {ROLE_ICON[r.role]} {r.name}
                 {p?.isYou ? ' (คุณ)' : ''}
               </td>
               <td>+{r.pointsAwarded}</td>

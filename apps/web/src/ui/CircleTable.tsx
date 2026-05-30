@@ -3,7 +3,7 @@
 // the current player to the next one to show turn direction.
 import { type Card as CardT, type GameView, SUIT_SYMBOL, cardId } from '@slave/engine';
 import { CardFace } from './Card';
-import { ROLE_LABEL, RoleBadge } from './shared';
+import { ROLE_ICON, ROLE_LABEL, RoleBadge } from './shared';
 
 const COMBO_LABEL: Record<string, string> = {
   single: 'เดี่ยว',
@@ -131,8 +131,9 @@ export function CircleTable({
               const to = view.players.find((p) => p.id === ch.toId);
               return (
                 <div key={i} className="exchange-row">
-                  {from?.role ? ROLE_LABEL[from.role] : '?'} → {to?.role ? ROLE_LABEL[to.role] : '?'} ·{' '}
-                  {ch.count} ใบ {ch.submitted ? '✓' : '⏳'}
+                  {from?.role ? `${ROLE_ICON[from.role]} ${ROLE_LABEL[from.role]}` : '?'} →{' '}
+                  {to?.role ? `${ROLE_ICON[to.role]} ${ROLE_LABEL[to.role]}` : '?'} · {ch.count} ใบ{' '}
+                  {ch.submitted ? '✓' : '⏳'}
                 </div>
               );
             })}
