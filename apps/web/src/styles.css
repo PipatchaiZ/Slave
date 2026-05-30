@@ -468,7 +468,14 @@ label {
   .tbl-seat .seat-name {
     font-size: 10px;
   }
-  .tbl-seat .seat-meta,
+  .tbl-seat .seat-meta {
+    font-size: 9px;
+    min-height: 0;
+    /* show the ⭐ score instead of clipping it off the end */
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+  }
   .tbl-seat .seat-status {
     font-size: 9px;
     min-height: 0;
@@ -539,26 +546,53 @@ label {
 .card.disabled {
   cursor: default;
 }
+/* Corner ranks + a dead-centre suit, positioned absolutely so the layout never
+   shifts with card size (the flex fallback let the big suit crowd the ranks). */
 .card-rank {
+  position: absolute;
+  top: 3px;
+  left: 5px;
   font-size: 13px;
   line-height: 1;
 }
 .card.sm .card-rank {
   font-size: 10px;
+  top: 2px;
+  left: 4px;
 }
 .card.lg .card-rank {
-  font-size: 17px;
+  font-size: 18px;
+  top: 5px;
+  left: 6px;
 }
 .card-suit {
-  font-size: 18px;
-  text-align: center;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 20px;
+  line-height: 1;
+}
+.card.sm .card-suit {
+  font-size: 15px;
 }
 .card.lg .card-suit {
   font-size: 30px;
 }
 .card-rank.bottom {
-  align-self: flex-end;
+  top: auto;
+  left: auto;
+  bottom: 3px;
+  right: 5px;
   transform: rotate(180deg);
+}
+.card.sm .card-rank.bottom {
+  bottom: 2px;
+  right: 4px;
+}
+.card.lg .card-rank.bottom {
+  bottom: 5px;
+  right: 6px;
 }
 .card.back {
   background: repeating-linear-gradient(45deg, #3b5dc9, #3b5dc9 6px, #29366f 6px, #29366f 12px);
