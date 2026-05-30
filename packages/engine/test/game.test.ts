@@ -11,6 +11,7 @@ import {
   liveRoles,
   pass,
   play,
+  playableCardIds,
   playerById,
   resolveRanking,
   roleForRank,
@@ -78,6 +79,51 @@ describe('turn rules', () => {
     const state = newGame(3);
     startMatch(state, 1, mulberry32(42));
     expect(() => pass(state, turnPlayerId(state))).toThrow(/lead/);
+  });
+
+  it('auto-passes players with no legal response (no waiting on a ghost card)', () => {
+    const card = (rank: Rank, suit: Suit): Card => ({ rank, suit });
+    const state = newGame(3);
+    state.players[0].hand = [card('2', 'S')]; // King: one unbeatable card
+    state.players[1].hand = [card('9', 'C'), card('5', 'D')];
+    state.players[2].hand = [card('K', 'H'), card('4', 'D')];
+    state.players.forEach((p) => (p.handCount = p.hand.length));
+    state.trick = { leadSeat: 0, top: null, passed: [], plays: [] };
+    state.turnSeat = 0;
+    state.totalRounds = 1;
+    state.roundNumber = 1;
+    state.phase = 'playing';
+
+    play(state, state.players[0].id, ['2S']); // King leads 2♠ and goes out
+
+    // Nobody can beat the 2♠: both remaining players are auto-passed and the
+    // trick resets so the next active player leads a fresh pile immediately.
+    expect(state.players[0].finished).toBe(true);
+    expect(state.trick.top).toBeNull(); // pile cleared, not stuck on the ghost card
+    expect(state.turnSeat).toBe(1); // B leads next
+    const b = state.players[1];
+    expect(playableCardIds(b.hand, null).size).toBe(b.hand.length); // can play freely
+  });
+
+  it('still lets a player who CAN beat the pile take their turn', () => {
+    const card = (rank: Rank, suit: Suit): Card => ({ rank, suit });
+    const state = newGame(3);
+    state.players[0].hand = [card('J', 'S')]; // King leads a beatable Jack
+    state.players[1].hand = [card('Q', 'C'), card('5', 'D')]; // B can beat with Q
+    state.players[2].hand = [card('K', 'H'), card('4', 'D')];
+    state.players.forEach((p) => (p.handCount = p.hand.length));
+    state.trick = { leadSeat: 0, top: null, passed: [], plays: [] };
+    state.turnSeat = 0;
+    state.totalRounds = 1;
+    state.roundNumber = 1;
+    state.phase = 'playing';
+
+    play(state, state.players[0].id, ['JS']); // King goes out on J♠
+
+    // B can beat it, so B is NOT skipped — they get the turn against the J.
+    expect(state.trick.top?.combo.cards[0].rank).toBe('J');
+    expect(state.turnSeat).toBe(1);
+    expect(playableCardIds(state.players[1].hand, state.trick.top!.combo).size).toBeGreaterThan(0);
   });
 });
 
