@@ -1,0 +1,17 @@
+# Render Blueprint — deploy as a single free web service.
+# 1. Push this repo to GitHub.
+# 2. Render Dashboard -> New -> Blueprint -> pick this repo.
+# Render injects PORT automatically; the server serves both the API and the
+# built web client on that port.
+services:
+  - type: web
+    name: slave
+    runtime: node
+    plan: free
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: '20'

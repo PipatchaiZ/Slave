@@ -1,0 +1,310 @@
+import { describe, expect, it } from 'vitest';
+import {
+  GameState,
+  addPlayer,
+  autoMove,
+  beginRound,
+  chooseExchange,
+  continueToNextRound,
+  createGame,
+  detectCombo,
+  pass,
+  play,
+  playerById,
+  resolveRanking,
+  startMatch,
+} from '../src';
+import type { Card, Rank, Suit } from '../src';
+
+// Deterministic RNG so deals are reproducible across runs.
+function mulberry32(seed: number) {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function newGame(n: number): GameState {
+  const state = createGame('ROOM', { id: 'p0', name: 'P0' });
+  for (let i = 1; i < n; i++) addPlayer(state, { id: `p${i}`, name: `P${i}` });
+  return state;
+}
+
+function turnPlayerId(state: GameState): string {
+  return state.players.find((p) => p.seat === state.turnSeat)!.id;
+}
+
+/** Play out the current round with auto moves; returns when no longer playing. */
+function playRoundAuto(state: GameState): void {
+  let guard = 0;
+  while (state.phase === 'playing') {
+    autoMove(state, turnPlayerId(state));
+    if (guard++ > 5000) throw new Error('round did not terminate');
+  }
+}
+
+describe('lobby and match start', () => {
+  it('enforces the 3-8 player range', () => {
+    const two = newGame(2);
+    expect(() => startMatch(two, 3)).toThrow();
+    const nine = newGame(8);
+    expect(() => addPlayer(nine, { id: 'x', name: 'X' })).toThrow();
+  });
+
+  it('round 1 lead is whoever holds 3♣', () => {
+    const state = newGame(4);
+    startMatch(state, 1, mulberry32(123));
+    const leader = state.players.find((p) => p.seat === state.turnSeat)!;
+    expect(leader.hand.some((c) => c.rank === '3' && c.suit === 'C')).toBe(true);
+    expect(state.phase).toBe('playing');
+  });
+
+  it('deals equal hands (remainder set aside)', () => {
+    const state = newGame(6);
+    startMatch(state, 1, mulberry32(7));
+    const counts = state.players.map((p) => p.hand.length);
+    expect(new Set(counts).size).toBe(1); // all equal
+    expect(counts[0]).toBe(8); // floor(52 / 6)
+  });
+});
+
+describe('turn rules', () => {
+  it('the leader cannot pass', () => {
+    const state = newGame(3);
+    startMatch(state, 1, mulberry32(42));
+    expect(() => pass(state, turnPlayerId(state))).toThrow(/lead/);
+  });
+});
+
+describe('full round invariants', () => {
+  it('produces exactly one king and conserves points', () => {
+    for (const n of [3, 4, 5, 6, 7, 8]) {
+      const state = newGame(n);
+      startMatch(state, 1, mulberry32(n * 1000 + 1));
+      playRoundAuto(state);
+      expect(state.phase).toBe('match_over'); // totalRounds = 1
+      const roles = state.players.map((p) => p.role);
+      expect(roles.filter((r) => r === 'king')).toHaveLength(1);
+      expect(roles.filter((r) => r === 'slave')).toHaveLength(1);
+      expect(roles.filter((r) => r === 'queen')).toHaveLength(n >= 4 ? 1 : 0);
+      const totalScore = state.players.reduce((s, p) => s + p.score, 0);
+      expect(totalScore).toBe((n * (n - 1)) / 2); // sum of n-1 .. 0
+    }
+  });
+});
+
+describe('resolveRanking — roles, scoring, regicide', () => {
+  it('ranks plainly when there is no defending king', () => {
+    const r = resolveRanking(['A', 'B', 'C', 'D', 'E'], null);
+    expect(r.roles).toEqual({ A: 'king', B: 'queen', C: 'people', D: 'viceslave', E: 'slave' });
+    expect(r.points).toEqual({ A: 4, B: 3, C: 2, D: 1, E: 0 });
+    expect(r.regicidedId).toBeNull();
+  });
+
+  it('drops a 3-player game straight to king/people/slave', () => {
+    const r = resolveRanking(['A', 'B', 'C'], null);
+    expect(r.roles).toEqual({ A: 'king', B: 'people', C: 'slave' });
+  });
+
+  it('4 players have no vice-slave (that seat is people)', () => {
+    const r = resolveRanking(['A', 'B', 'C', 'D'], null);
+    expect(r.roles).toEqual({ A: 'king', B: 'queen', C: 'people', D: 'slave' });
+  });
+
+  it('regicides the defending king when someone else finishes first', () => {
+    // Defending king P finished 2nd; everyone after P shifts up, P -> slave.
+    const r = resolveRanking(['A', 'P', 'B', 'C', 'D'], 'P');
+    expect(r.order).toEqual(['A', 'B', 'C', 'D', 'P']);
+    expect(r.roles).toEqual({ A: 'king', B: 'queen', C: 'people', D: 'viceslave', P: 'slave' });
+    expect(r.points.P).toBe(0);
+    expect(r.regicidedId).toBe('P');
+  });
+
+  it('lets the king keep the throne by finishing first', () => {
+    const r = resolveRanking(['P', 'A', 'B'], 'P');
+    expect(r.regicidedId).toBeNull();
+    expect(r.roles.P).toBe('king');
+  });
+});
+
+describe('card exchange (round 2+)', () => {
+  it('swaps equal counts, slave gives the top cards, previous slave leads', () => {
+    const state = newGame(4);
+    startMatch(state, 2, mulberry32(99));
+    playRoundAuto(state);
+    expect(state.phase).toBe('round_over');
+
+    const before = Object.fromEntries(state.players.map((p) => [p.id, p.handCount]));
+    continueToNextRound(state, mulberry32(100));
+    expect(state.phase).toBe('exchange');
+    expect(state.exchange).not.toBeNull();
+
+    const ranking = state.lastRoundResult!.map((r) => r.playerId);
+    const kingId = ranking[0];
+    const slaveId = ranking.at(-1)!;
+
+    // Snapshot slave's top 2 cards (king↔slave exchanges 2 in a 4-player game).
+    const slaveBefore = playerById(state, slaveId)!;
+    const slaveTop2 = [...slaveBefore.hand]
+      .sort((a, b) => b.rank.localeCompare(a.rank))
+      .slice(0, 2)
+      .map((c) => c.rank + c.suit);
+
+    // Each high-role player dumps their lowest cards.
+    for (const choice of state.exchange!.choices) {
+      const from = playerById(state, choice.fromId)!;
+      const lowest = [...from.hand].slice(0, choice.count).map((c) => c.rank + c.suit);
+      chooseExchange(state, choice.fromId, lowest);
+    }
+
+    expect(state.phase).toBe('playing');
+    // Hand counts are preserved by an equal-count swap (fresh deal -> ignore before map sizes equal anyway)
+    expect(state.players.reduce((s, p) => s + p.handCount, 0)).toBe(52);
+    void before;
+
+    // King should now hold the slave's former top cards.
+    const king = playerById(state, kingId)!;
+    const kingIds = king.hand.map((c) => c.rank + c.suit);
+    for (const id of slaveTop2) expect(kingIds).toContain(id);
+
+    // Previous slave leads the new round.
+    expect(turnPlayerId(state)).toBe(slaveId);
+  });
+});
+
+describe('turn direction', () => {
+  it('alternates each round (round 1 ascending, round 2 descending)', () => {
+    const state = newGame(4);
+    startMatch(state, 3, mulberry32(1));
+    expect(state.direction).toBe(1);
+    playRoundAuto(state);
+    continueToNextRound(state, mulberry32(2));
+    expect(state.direction).toBe(-1);
+  });
+});
+
+describe('multi-round match', () => {
+  it('runs to match_over with accumulating scores', () => {
+    const state = newGame(5);
+    startMatch(state, 3, mulberry32(2024));
+    let safety = 0;
+    while (state.phase !== 'match_over') {
+      if (state.phase === 'playing') playRoundAuto(state);
+      else if (state.phase === 'round_over') continueToNextRound(state, mulberry32(safety + 1));
+      else if (state.phase === 'exchange') {
+        for (const choice of state.exchange!.choices) {
+          const from = playerById(state, choice.fromId)!;
+          chooseExchange(
+            state,
+            choice.fromId,
+            from.hand.slice(0, choice.count).map((c) => c.rank + c.suit),
+          );
+        }
+      }
+      if (safety++ > 50) throw new Error('match did not terminate');
+    }
+    expect(state.roundNumber).toBe(3);
+    const totalScore = state.players.reduce((s, p) => s + p.score, 0);
+    expect(totalScore).toBe(3 * ((5 * 4) / 2)); // 3 rounds * (4+3+2+1+0)
+  });
+});
+
+describe('slap (ตบ) — triple beats single, four beats pair', () => {
+  const C = (rank: Rank, suit: Suit): Card => ({ rank, suit });
+
+  /** A (seat 0) holds four 5s; B & D each hold 2 cards; top + mode configurable. */
+  function slapState(topCards: Card[], mode: 'normal' | 'sainua') {
+    const state = createGame('R', { id: 'a', name: 'A' }, mode);
+    addPlayer(state, { id: 'b', name: 'B' });
+    addPlayer(state, { id: 'c', name: 'C' });
+    const [A, B, D] = state.players;
+    A.hand = [C('5', 'C'), C('5', 'D'), C('5', 'H'), C('5', 'S'), C('9', 'S')];
+    B.hand = [C('K', 'C'), C('7', 'D')];
+    D.hand = [C('Q', 'C'), C('8', 'D')];
+    state.players.forEach((p) => (p.handCount = p.hand.length));
+    const top = detectCombo(topCards)!;
+    state.discard = [...topCards, C('6', 'C'), C('6', 'D'), C('6', 'H')];
+    state.trick = { leadSeat: 2, top: { combo: top, seat: 2 }, passed: [], plays: [{ seat: 2, pass: false, combo: top }] };
+    state.turnSeat = 0;
+    state.totalRounds = 1;
+    state.roundNumber = 1;
+    state.phase = 'playing';
+    return state;
+  }
+
+  it('sainua: triple slaps a single → others draw 1 each', () => {
+    const state = slapState([C('4', 'C')], 'sainua');
+    play(state, 'a', ['5C', '5D', '5H'], () => 0);
+    expect(playerById(state, 'a')!.handCount).toBe(2); // 5 - 3
+    expect(playerById(state, 'b')!.handCount).toBe(3); // 2 + 1
+    expect(playerById(state, 'c')!.handCount).toBe(3);
+  });
+
+  it('sainua: four slaps a pair → others draw 2 each', () => {
+    const state = slapState([C('4', 'C'), C('4', 'D')], 'sainua');
+    play(state, 'a', ['5C', '5D', '5H', '5S'], () => 0);
+    expect(playerById(state, 'b')!.handCount).toBe(4); // 2 + 2
+    expect(playerById(state, 'c')!.handCount).toBe(4);
+  });
+
+  it('normal: triple slaps a single — allowed, but NO draw penalty', () => {
+    const state = slapState([C('4', 'C')], 'normal');
+    play(state, 'a', ['5C', '5D', '5H']);
+    expect(playerById(state, 'a')!.handCount).toBe(2);
+    expect(playerById(state, 'b')!.handCount).toBe(2); // unchanged
+    expect(playerById(state, 'c')!.handCount).toBe(2);
+  });
+
+  it('illegal slaps are rejected: triple-on-pair and four-on-single', () => {
+    expect(() => play(slapState([C('4', 'C'), C('4', 'D')], 'sainua'), 'a', ['5C', '5D', '5H'])).toThrow();
+    expect(() => play(slapState([C('4', 'C')], 'sainua'), 'a', ['5C', '5D', '5H', '5S'])).toThrow();
+  });
+
+  it('any four (even four-on-four) makes others draw 2 in sainua', () => {
+    const state = createGame('R', { id: 'a', name: 'A' }, 'sainua');
+    addPlayer(state, { id: 'b', name: 'B' });
+    addPlayer(state, { id: 'c', name: 'C' });
+    const [A, B, D] = state.players;
+    A.hand = [C('7', 'C'), C('7', 'D'), C('7', 'H'), C('7', 'S'), C('9', 'S')];
+    B.hand = [C('K', 'C'), C('8', 'D')];
+    D.hand = [C('Q', 'C'), C('9', 'D')];
+    state.players.forEach((p) => (p.handCount = p.hand.length));
+    const top = detectCombo([C('5', 'C'), C('5', 'D'), C('5', 'H'), C('5', 'S')])!;
+    state.discard = [C('5', 'C'), C('5', 'D'), C('5', 'H'), C('5', 'S'), C('6', 'C')];
+    state.trick = { leadSeat: 2, top: { combo: top, seat: 2 }, passed: [], plays: [{ seat: 2, pass: false, combo: top }] };
+    state.turnSeat = 0;
+    state.totalRounds = 1;
+    state.roundNumber = 1;
+    state.phase = 'playing';
+    play(state, 'a', ['7C', '7D', '7H', '7S'], () => 0);
+    expect(playerById(state, 'a')!.handCount).toBe(1); // 5 - 4, slapper doesn't draw
+    expect(playerById(state, 'b')!.handCount).toBe(4); // 2 + 2
+    expect(playerById(state, 'c')!.handCount).toBe(4); // 2 + 2
+  });
+
+  it('leading a triple in sainua makes others draw 1', () => {
+    const state = createGame('R', { id: 'a', name: 'A' }, 'sainua');
+    addPlayer(state, { id: 'b', name: 'B' });
+    addPlayer(state, { id: 'c', name: 'C' });
+    const [A, B, D] = state.players;
+    A.hand = [C('5', 'C'), C('5', 'D'), C('5', 'H'), C('9', 'S')];
+    B.hand = [C('K', 'C'), C('7', 'D')];
+    D.hand = [C('Q', 'C'), C('8', 'D')];
+    state.players.forEach((p) => (p.handCount = p.hand.length));
+    state.discard = [C('6', 'C'), C('6', 'D')]; // some used cards to draw from
+    state.trick = { leadSeat: 0, top: null, passed: [], plays: [] };
+    state.turnSeat = 0;
+    state.totalRounds = 1;
+    state.roundNumber = 1;
+    state.phase = 'playing';
+    play(state, 'a', ['5C', '5D', '5H'], () => 0); // lead a triple
+    expect(playerById(state, 'b')!.handCount).toBe(3); // 2 + 1
+    expect(playerById(state, 'c')!.handCount).toBe(3); // 2 + 1
+  });
+});
+
+// keep beginRound exported-symbol referenced for clarity
+void beginRound;
