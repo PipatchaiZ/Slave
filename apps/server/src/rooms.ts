@@ -21,6 +21,11 @@ const roomCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
 
 const TURN_TIMEOUT_MS = Number(process.env.TURN_TIMEOUT_MS ?? 15000); // connected: auto-resolve
 const AUTO_MOVE_GRACE_MS = 3000; // disconnected players: shorter grace
+// The countdown shown to a connected player ends at turnEndsAt, but the server
+// waits this much longer before actually auto-passing — so a click that lands
+// right as the timer hits 0 (plus network latency) still counts instead of being
+// rejected with a confusing "Not your turn" / "Card not in hand" red error.
+const LATE_CLICK_GRACE_MS = Number(process.env.LATE_CLICK_GRACE_MS ?? 2500);
 const NEXT_ROUND_AUTO_MS = 12000;
 // Grace before a dropped socket is treated as "left" — lets a page refresh /
 // brief network blip reclaim the seat instead of nuking it.
@@ -394,6 +399,9 @@ export class RoomManager {
       const grace = turnPlayer.connected ? TURN_TIMEOUT_MS : AUTO_MOVE_GRACE_MS;
       s.turnEndsAt = Date.now() + grace;
       room.armedTurnToken = token;
+      // Connected players get a hidden buffer past the visible deadline so a
+      // last-second click isn't raced by the auto-pass; the disconnected don't.
+      const fireIn = grace + (turnPlayer.connected ? LATE_CLICK_GRACE_MS : 0);
       room.autoTimer = setTimeout(() => {
         room.autoTimer = null;
         room.armedTurnToken = null;
@@ -404,7 +412,7 @@ export class RoomManager {
         }
         this.tick(room);
         this.broadcast(room);
-      }, grace);
+      }, fireIn);
       return;
     }
 
