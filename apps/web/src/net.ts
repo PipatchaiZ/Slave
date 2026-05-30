@@ -55,7 +55,14 @@ export function useGameView() {
     // otherwise leaves the "reconnecting" banner stuck on.
     setConnected(socket.connected);
     const onState = (v: GameView) => setView(v);
-    const onError = (e: { message: string }) => setError(e.message);
+    // A play/pass that lost a race with the turn timer (auto-pass / auto-move)
+    // comes back as one of these codes. The authoritative state has already been
+    // re-broadcast, so silently drop the scary toast instead of alarming the user.
+    const TRANSIENT = new Set(['not_turn', 'not_in_hand', 'too_weak', 'finished', 'not_playing']);
+    const onError = (e: { message: string; code?: string }) => {
+      if (e.code && TRANSIENT.has(e.code)) return;
+      setError(e.message);
+    };
     const onConnect = () => setConnected(true);
     const onDisconnect = () => setConnected(false);
     socket.on(EV.state, onState);

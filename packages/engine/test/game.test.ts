@@ -81,7 +81,7 @@ describe('turn rules', () => {
     expect(() => pass(state, turnPlayerId(state))).toThrow(/lead/);
   });
 
-  it('auto-passes players with no legal response (no waiting on a ghost card)', () => {
+  it('keeps the turn on a player with no legal response (they pass themselves)', () => {
     const card = (rank: Rank, suit: Suit): Card => ({ rank, suit });
     const state = newGame(3);
     state.players[0].hand = [card('2', 'S')]; // King: one unbeatable card
@@ -96,13 +96,17 @@ describe('turn rules', () => {
 
     play(state, state.players[0].id, ['2S']); // King leads 2♠ and goes out
 
-    // Nobody can beat the 2♠: both remaining players are auto-passed and the
-    // trick resets so the next active player leads a fresh pile immediately.
+    // The turn passes to B with the 2♠ still on top. B cannot beat it but is NOT
+    // auto-passed — they keep the turn (their UI dims every card) and must pass,
+    // or the turn timer passes them. The pile only clears once everyone passes.
     expect(state.players[0].finished).toBe(true);
-    expect(state.trick.top).toBeNull(); // pile cleared, not stuck on the ghost card
-    expect(state.turnSeat).toBe(1); // B leads next
-    const b = state.players[1];
-    expect(playableCardIds(b.hand, null).size).toBe(b.hand.length); // can play freely
+    expect(state.trick.top?.combo.cards[0].rank).toBe('2');
+    expect(state.turnSeat).toBe(1);
+    expect(playableCardIds(state.players[1].hand, state.trick.top!.combo).size).toBe(0);
+    // B passes, C passes -> trick resets, next active player leads fresh.
+    pass(state, state.players[1].id);
+    pass(state, state.players[2].id);
+    expect(state.trick.top).toBeNull();
   });
 
   it('still lets a player who CAN beat the pile take their turn', () => {

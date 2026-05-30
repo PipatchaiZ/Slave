@@ -51,6 +51,12 @@ export interface Ack {
   ok: boolean;
   error?: string;
 }
+export interface ErrorPayload {
+  message: string;
+  /** GameError code, when available — lets the client quietly drop transient
+   * "your move didn't apply" races (the board already re-rendered). */
+  code?: string;
+}
 export interface PlayPayload {
   cardIds: string[];
 }

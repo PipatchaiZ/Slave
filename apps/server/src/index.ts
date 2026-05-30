@@ -8,6 +8,7 @@ import {
   CreatePayload,
   EV,
   ExchangePayload,
+  GameError,
   JoinPayload,
   KickPayload,
   PlayPayload,
@@ -41,6 +42,9 @@ if (fs.existsSync(webDist)) {
 
 function msg(e: unknown): string {
   return e instanceof Error ? e.message : 'เกิดข้อผิดพลาด';
+}
+function codeOf(e: unknown): string | undefined {
+  return e instanceof GameError ? e.code : undefined;
 }
 
 io.on('connection', (socket) => {
@@ -77,7 +81,7 @@ io.on('connection', (socket) => {
     try {
       fn();
     } catch (e) {
-      socket.emit(EV.error, { message: msg(e) });
+      socket.emit(EV.error, { message: msg(e), code: codeOf(e) });
     }
   };
 

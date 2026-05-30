@@ -11,7 +11,7 @@ import {
   shuffle,
   sortHand,
 } from './cards';
-import { Combo, beats, detectCombo, isSlap, playableCardIds } from './combos';
+import { Combo, beats, detectCombo, isSlap } from './combos';
 import {
   ExchangeChoice,
   GameError,
@@ -343,42 +343,25 @@ function nextSeatIn(state: GameState, fromSeat: number, eligible: Set<number>): 
 }
 
 function advance(state: GameState, lastSeat: number): void {
-  let seat = lastSeat;
-  // Loop so that players with no legal response are skipped (auto-passed) rather
-  // than handed a turn where their only option is to pass and wait out the clock.
-  for (;;) {
-    // Round end: only one (or zero) player still holds cards.
-    if (activeNotFinished(state).length <= 1) {
-      endRound(state);
-      return;
-    }
-
-    const top = state.trick.top!; // top is always set after the first play; pass requires it
-    const passed = new Set(state.trick.passed);
-    const eligible = new Set<number>();
-    for (const p of state.players) {
-      if (!p.finished && !passed.has(p.seat) && p.seat !== top.seat) eligible.add(p.seat);
-    }
-
-    if (eligible.size === 0) {
-      endTrick(state, top.seat);
-      return;
-    }
-
-    const next = nextSeatIn(state, seat, eligible);
-    const nextPlayer = playerBySeat(state, next);
-    // No card can beat or slap the current pile -> auto-pass and move on. This is
-    // the documented "must pass when you can't fight" rule, applied instantly so
-    // nobody is forced to wait for the timeout when they have nothing to play.
-    if (playableCardIds(nextPlayer.hand, top.combo).size === 0) {
-      state.trick.passed.push(next);
-      state.trick.plays.push({ seat: next, pass: true, combo: null });
-      seat = next;
-      continue;
-    }
-
-    state.turnSeat = next;
+  // Round end: only one (or zero) player still holds cards.
+  if (activeNotFinished(state).length <= 1) {
+    endRound(state);
     return;
+  }
+
+  const top = state.trick.top!; // top is always set after the first play; pass requires it
+  const passed = new Set(state.trick.passed);
+  const eligible = new Set<number>();
+  for (const p of state.players) {
+    if (!p.finished && !passed.has(p.seat) && p.seat !== top.seat) eligible.add(p.seat);
+  }
+
+  // Hand the turn to the next player even if they hold nothing that beats the
+  // pile — they choose to pass themselves (or the turn timer auto-passes them).
+  if (eligible.size === 0) {
+    endTrick(state, top.seat);
+  } else {
+    state.turnSeat = nextSeatIn(state, lastSeat, eligible);
   }
 }
 
