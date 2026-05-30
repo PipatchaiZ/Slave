@@ -211,6 +211,8 @@ export function CircleTable({
         );
       })}
 
+      {bigReaction && <div key={`bd-${bigReaction.key}`} className="big-backdrop" />}
+
       {bigReaction && (
         <div key={bigReaction.key} className="big-reaction">
           <div className="big-emoji">{bigReaction.emoji}</div>

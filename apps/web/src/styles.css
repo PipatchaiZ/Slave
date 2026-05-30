@@ -722,6 +722,23 @@ table.results tr.regicide td {
   100% { transform: translate(-50%, -230%) scale(1); opacity: 0; }
 }
 
+/* Dark backdrop that fades in behind the big centre burst so it pops. Scoped to
+   the table, sits above the seats/pile (z5) but below the burst (z10). */
+.big-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.82));
+  animation: big-backdrop 2s ease forwards;
+}
+@keyframes big-backdrop {
+  0% { opacity: 0; }
+  18% { opacity: 1; }
+  72% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* big centre burst for headline events (went out / triple / four) */
 .big-reaction {
   position: absolute;
