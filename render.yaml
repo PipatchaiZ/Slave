@@ -15,3 +15,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: '20'
+      # Optional: persist rooms so games survive a restart / free-tier spin-down.
+      # Create a free Upstash Redis DB and paste its rediss://... URL here (or set
+      # it in the Render dashboard). Leave unset to keep rooms in memory only.
+      # - key: REDIS_URL
+      #   value: 'rediss://...'

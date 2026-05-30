@@ -8,10 +8,12 @@ import {
   continueToNextRound,
   createGame,
   detectCombo,
+  liveRoles,
   pass,
   play,
   playerById,
   resolveRanking,
+  roleForRank,
   startMatch,
 } from '../src';
 import type { Card, Rank, Suit } from '../src';
@@ -175,6 +177,20 @@ describe('card exchange (round 2+)', () => {
   });
 });
 
+describe('roleForRank (live finish-position badge)', () => {
+  it('maps finish order to roles by player count', () => {
+    expect([0, 1, 2, 3, 4].map((i) => roleForRank(i, 5))).toEqual([
+      'king',
+      'queen',
+      'people',
+      'viceslave',
+      'slave',
+    ]);
+    expect([0, 1, 2, 3].map((i) => roleForRank(i, 4))).toEqual(['king', 'queen', 'people', 'slave']);
+    expect([0, 1, 2].map((i) => roleForRank(i, 3))).toEqual(['king', 'people', 'slave']);
+  });
+});
+
 describe('turn direction', () => {
   it('alternates each round (round 1 ascending, round 2 descending)', () => {
     const state = newGame(4);
@@ -303,6 +319,78 @@ describe('slap (ตบ) — triple beats single, four beats pair', () => {
     play(state, 'a', ['5C', '5D', '5H'], () => 0); // lead a triple
     expect(playerById(state, 'b')!.handCount).toBe(3); // 2 + 1
     expect(playerById(state, 'c')!.handCount).toBe(3); // 2 + 1
+  });
+});
+
+describe('liveRoles (provisional in-round badges)', () => {
+  function playingState(n: number, defendingKingId: string | null): GameState {
+    const state = newGame(n);
+    state.phase = 'playing';
+    state.totalRounds = 3;
+    state.roundNumber = 2;
+    state.defendingKingId = defendingKingId;
+    state.players.forEach((p) => (p.role = 'people'));
+    return state;
+  }
+  const finish = (state: GameState, id: string, pos: number) => {
+    const p = playerById(state, id)!;
+    p.finished = true;
+    p.finishPosition = pos;
+  };
+
+  it('first player out is shown as king immediately', () => {
+    const state = playingState(4, null);
+    finish(state, 'p1', 0); // p1 goes out first
+    const roles = liveRoles(state);
+    expect(roles.p1).toBe('king');
+    expect(roles.p0).toBe('people'); // still holding cards -> prior role
+  });
+
+  it('second player out (>=4) is shown as queen', () => {
+    const state = playingState(4, null);
+    finish(state, 'p2', 0);
+    finish(state, 'p1', 1);
+    const roles = liveRoles(state);
+    expect(roles.p2).toBe('king');
+    expect(roles.p1).toBe('queen');
+  });
+
+  it('a defending king who is not first out flips to slave the moment it is locked', () => {
+    const state = playingState(5, 'p0'); // p0 is the defending king
+    finish(state, 'p1', 0); // someone ELSE goes out first -> regicide certain
+    const roles = liveRoles(state);
+    expect(roles.p1).toBe('king');
+    expect(roles.p0).toBe('slave'); // demoted live, before round end
+  });
+
+  it('finishers after the regicided king shift up one role', () => {
+    const state = playingState(5, 'p0');
+    finish(state, 'p1', 0); // king (p0) is no longer first -> regicide locked
+    finish(state, 'p0', 1); // defending king goes out 2nd
+    finish(state, 'p2', 2); // finished AFTER the king -> shifts up
+    const roles = liveRoles(state);
+    expect(roles.p1).toBe('king');
+    expect(roles.p0).toBe('slave'); // forced to bottom
+    expect(roles.p2).toBe('queen'); // index 2 -> shifted to 1 = queen
+  });
+
+  it('a defending king who IS first out keeps the crown (no regicide)', () => {
+    const state = playingState(4, 'p0');
+    finish(state, 'p0', 0); // king defends successfully
+    finish(state, 'p1', 1);
+    const roles = liveRoles(state);
+    expect(roles.p0).toBe('king');
+    expect(roles.p1).toBe('queen');
+  });
+
+  it('outside an active round it mirrors the stored final role', () => {
+    const state = playingState(4, 'p0');
+    state.phase = 'round_over';
+    state.players[0].role = 'slave';
+    state.players[1].role = 'king';
+    const roles = liveRoles(state);
+    expect(roles.p0).toBe('slave');
+    expect(roles.p1).toBe('king');
   });
 });
 

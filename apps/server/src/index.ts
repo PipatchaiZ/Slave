@@ -15,6 +15,7 @@ import {
   TransferHostPayload,
 } from '@slave/engine';
 import { RoomManager } from './rooms';
+import { createStore } from './store';
 
 const PORT = Number(process.env.PORT ?? 3001);
 
@@ -22,6 +23,11 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
 const rooms = new RoomManager(io);
+
+// Optional Redis persistence (set REDIS_URL). Restores saved rooms on boot.
+createStore()
+  .then((store) => rooms.useStore(store))
+  .catch((e) => console.error('[slave] store init failed:', e));
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 

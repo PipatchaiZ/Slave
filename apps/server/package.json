@@ -4,12 +4,13 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --external:express --external:socket.io --external:nanoid --outfile=dist/index.js",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --external:express --external:socket.io --external:nanoid --external:ioredis --outfile=dist/index.js",
     "start": "node dist/index.js"
   },
   "dependencies": {
     "@slave/engine": "*",
     "express": "^4.21.2",
+    "ioredis": "^5.4.1",
     "nanoid": "^5.0.9",
     "socket.io": "^4.8.1"
   },

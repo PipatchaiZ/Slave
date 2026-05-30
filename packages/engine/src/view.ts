@@ -2,6 +2,7 @@
 // hidden information never leaves the authoritative server.
 
 import { Card } from './cards';
+import { liveRoles } from './game';
 import { ExchangeChoice, GameState, Mode, Phase, Role, RoundResultRow, TrickState } from './types';
 
 export interface PlayerView {
@@ -13,6 +14,8 @@ export interface PlayerView {
   finished: boolean;
   finishPosition: number | null;
   role: Role | null;
+  /** Provisional role to display right now (live King/Queen/Slave, regicide). */
+  liveRole: Role | null;
   score: number;
   isYou: boolean;
 }
@@ -52,6 +55,7 @@ export interface GameView {
 
 export function viewFor(state: GameState, viewerId: string): GameView {
   const you = state.players.find((p) => p.id === viewerId);
+  const live = liveRoles(state);
   return {
     roomCode: state.roomCode,
     hostId: state.hostId,
@@ -66,6 +70,7 @@ export function viewFor(state: GameState, viewerId: string): GameView {
       finished: p.finished,
       finishPosition: p.finishPosition,
       role: p.role,
+      liveRole: live[p.id] ?? p.role,
       score: p.score,
       isYou: p.id === viewerId,
     })),

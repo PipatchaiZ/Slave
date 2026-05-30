@@ -170,6 +170,9 @@ export function CircleTable({
         if (!p.connected) cls.push('offline');
         if (p.finished) cls.push('finished');
         const act = lastBySeat.get(p.seat);
+        // Live role from the server: finishers show their standing immediately,
+        // and a regicided defending king flips to Slave the moment it's locked.
+        const liveRole = p.liveRole;
         return (
           <div key={p.id} className="tbl-seat" style={{ left: `${x}%`, top: `${y}%` }}>
             <div className={cls.join(' ')}>
@@ -181,7 +184,7 @@ export function CircleTable({
                 {p.isYou ? ' (คุณ)' : ''}
               </div>
               <div className="seat-badges">
-                <RoleBadge role={p.role} />
+                <RoleBadge role={liveRole} />
               </div>
               <div className="seat-meta">🃏 {p.handCount} · ⭐ {p.score}</div>
               <div className="seat-meta">

@@ -383,6 +383,59 @@ export interface RankingResolution {
 }
 
 /**
+ * Role for a finishing rank (0 = first out). Queen exists with >= 4 players,
+ * Vice-Slave with >= 5. Used both for end-of-round scoring and for the live
+ * badge shown the moment a player goes out.
+ */
+export function roleForRank(index: number, playerCount: number): Role {
+  if (index === 0) return 'king';
+  if (index === playerCount - 1) return 'slave';
+  if (playerCount >= 4 && index === 1) return 'queen';
+  if (playerCount >= 5 && index === playerCount - 2) return 'viceslave';
+  return 'people';
+}
+
+/**
+ * Provisional roles to show DURING a round, before final scoring locks in.
+ * - The first player out is already King, the second (n>=4) Queen, the live
+ *   slave slot fills from the bottom as players go out.
+ * - The moment a defending king's regicide is certain (someone else finished
+ *   first), that king is shown as Slave immediately, and every player who
+ *   finished AFTER him shifts up one role to fill the gap he leaves.
+ * - Players still holding cards keep their previous-round role as a hint, since
+ *   their final standing isn't determined yet.
+ * Outside an active round this just mirrors the stored (final) role.
+ */
+export function liveRoles(state: GameState): Record<string, Role | null> {
+  const n = state.players.length;
+  const out: Record<string, Role | null> = {};
+  if (state.phase !== 'playing') {
+    for (const p of state.players) out[p.id] = p.role;
+    return out;
+  }
+
+  const kingId = state.defendingKingId;
+  const firstOut = state.players.find((p) => p.finishPosition === 0) ?? null;
+  const kingPlayer = kingId ? (state.players.find((p) => p.id === kingId) ?? null) : null;
+  // Regicide is certain once someone OTHER than the defending king is first out.
+  const regicideLocked = !!kingId && !!firstOut && firstOut.id !== kingId;
+  const kingFinishPos = kingPlayer?.finishPosition ?? null;
+
+  for (const p of state.players) {
+    if (regicideLocked && p.id === kingId) {
+      out[p.id] = 'slave'; // demoted to the very bottom
+    } else if (p.finished && p.finishPosition != null) {
+      // Removing the regicided king shifts later finishers up one place.
+      const shift = regicideLocked && kingFinishPos != null && p.finishPosition > kingFinishPos ? 1 : 0;
+      out[p.id] = roleForRank(p.finishPosition - shift, n);
+    } else {
+      out[p.id] = p.role;
+    }
+  }
+  return out;
+}
+
+/**
  * Pure roles + scoring resolver. `rawIds` is the finish order (first out first).
  * If a defending king exists and did NOT finish first, they are removed and
  * forced to the bottom; everyone else compacts up by finish order.
@@ -397,18 +450,10 @@ export function resolveRanking(rawIds: string[], defendingKingId: string | null)
   }
 
   const n = order.length;
-  const queenExists = n >= 4; // Queen appears with >= 4 players
-  const viceExists = n >= 5; // Vice-Slave appears only with >= 5 players
   const roles: Record<string, Role> = {};
   const points: Record<string, number> = {};
   order.forEach((id, index) => {
-    let role: Role;
-    if (index === 0) role = 'king';
-    else if (index === n - 1) role = 'slave';
-    else if (queenExists && index === 1) role = 'queen';
-    else if (viceExists && index === n - 2) role = 'viceslave';
-    else role = 'people';
-    roles[id] = role;
+    roles[id] = roleForRank(index, n);
     points[id] = n - 1 - index; // king = n-1 ... slave = 0
   });
   return { order, regicidedId, roles, points };

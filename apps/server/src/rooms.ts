@@ -15,6 +15,7 @@ import {
   startMatch,
   viewFor,
 } from '@slave/engine';
+import type { PersistedRoom, RoomStore } from './store';
 
 const roomCode = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 5);
 
@@ -23,7 +24,7 @@ const AUTO_MOVE_GRACE_MS = 3000; // disconnected players: shorter grace
 const NEXT_ROUND_AUTO_MS = 12000;
 // Grace before a dropped socket is treated as "left" — lets a page refresh /
 // brief network blip reclaim the seat instead of nuking it.
-const DISCONNECT_GRACE_MS = Number(process.env.DISCONNECT_GRACE_MS ?? 10000);
+const DISCONNECT_GRACE_MS = Number(process.env.DISCONNECT_GRACE_MS ?? 45000);
 const EMPTY_ROOM_TTL_MS = 10 * 60 * 1000;
 
 interface Room {
@@ -41,9 +42,52 @@ interface Room {
 export class RoomManager {
   private rooms = new Map<string, Room>();
   private socketIndex = new Map<string, { roomCode: string; playerId: string }>();
+  private store: RoomStore | null = null;
 
   constructor(private io: Server) {
     setInterval(() => this.sweepEmptyRooms(), 60_000).unref?.();
+  }
+
+  /**
+   * Attach a persistence store and reload any rooms it holds. Restored rooms come
+   * back with every player marked disconnected and no live timers; the seats wait
+   * (token still valid) for players to reconnect, and are swept if nobody does.
+   */
+  async useStore(store: RoomStore): Promise<void> {
+    this.store = store;
+    if (!store.enabled) return;
+    const saved = await store.loadAll();
+    const now = Date.now();
+    let restored = 0;
+    for (const pr of saved) {
+      const code = pr.state.roomCode;
+      if (!code || this.rooms.has(code)) continue;
+      pr.state.players.forEach((p) => (p.connected = false));
+      pr.state.turnEndsAt = null;
+      this.rooms.set(code, {
+        state: pr.state,
+        pendingRounds: pr.pendingRounds,
+        tokens: new Map(pr.tokens),
+        sockets: new Map(),
+        autoTimer: null,
+        armedTurnToken: null,
+        nextTimer: null,
+        graceTimers: new Map(),
+        emptySince: now,
+      });
+      restored++;
+    }
+    if (restored) console.log(`[slave] restored ${restored} room(s) from persistence`);
+  }
+
+  private persist(room: Room): void {
+    if (!this.store?.enabled) return;
+    const data: PersistedRoom = {
+      state: room.state,
+      pendingRounds: room.pendingRounds,
+      tokens: [...room.tokens],
+    };
+    this.store.save(room.state.roomCode, data);
   }
 
   // ---- lifecycle ------------------------------------------------------------
@@ -70,6 +114,7 @@ export class RoomManager {
       emptySince: Date.now(),
     };
     this.rooms.set(code, room);
+    this.persist(room);
     return { roomCode: code, playerId, token };
   }
 
@@ -80,6 +125,7 @@ export class RoomManager {
     const token = nanoid(16);
     addPlayer(room.state, { id: playerId, name: cleanName(name) });
     room.tokens.set(playerId, token);
+    this.persist(room);
     return { playerId, token };
   }
 
@@ -147,15 +193,26 @@ export class RoomManager {
     const player = playerById(room.state, playerId);
     if (!player || player.connected) return; // reconnected in time
 
+    // A drop/refresh is NOT an explicit leave — never disband the room here.
     if (room.state.phase === 'lobby') {
       if (room.state.hostId === playerId) {
-        this.closeRoom(code, 'host ออกจากห้อง • ห้องถูกปิด');
-        return;
-      }
-      try {
-        removePlayer(room.state, playerId);
-      } catch {
-        /* ignore */
+        // Hand host to someone connected and drop the absent host; if nobody
+        // else is here, keep the room so the host can reconnect (token still valid).
+        const heir = room.state.players.find((p) => p.connected && p.id !== playerId);
+        if (heir) {
+          room.state.hostId = heir.id;
+          try {
+            removePlayer(room.state, playerId);
+          } catch {
+            /* ignore */
+          }
+        }
+      } else {
+        try {
+          removePlayer(room.state, playerId);
+        } catch {
+          /* ignore */
+        }
       }
     } else if (room.state.hostId === playerId) {
       const heir = room.state.players.find((p) => p.connected && p.id !== playerId);
@@ -215,6 +272,7 @@ export class RoomManager {
       this.socketIndex.delete(socketId);
     }
     this.rooms.delete(code);
+    this.store?.remove(code);
   }
 
   // ---- actions --------------------------------------------------------------
@@ -392,6 +450,7 @@ export class RoomManager {
   }
 
   private broadcast(room: Room): void {
+    this.persist(room); // every state change is also a save point
     for (const [playerId, socketId] of room.sockets) {
       const sock = this.io.sockets.sockets.get(socketId);
       if (sock) sock.emit(EV.state, viewFor(room.state, playerId));
@@ -420,6 +479,7 @@ export class RoomManager {
         if (room.nextTimer) clearTimeout(room.nextTimer);
         for (const t of room.graceTimers.values()) clearTimeout(t);
         this.rooms.delete(code);
+        this.store?.remove(code);
       }
     }
   }
