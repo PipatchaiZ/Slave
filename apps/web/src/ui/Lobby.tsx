@@ -45,7 +45,7 @@ export function Lobby({ view, onLeave }: { view: GameView; onLeave: () => void }
         </div>
         <p className="small muted center">
           แชร์โค้ดนี้ให้เพื่อน • เล่น {view.totalRounds} รอบ •{' '}
-          {view.mode === 'sainua' ? 'โหมดใส่นัว 🌶️' : 'โหมดปกติ'}
+          {view.mode === 'sainua' ? 'โหมดจั่วเพิ่ม 🌶️' : 'โหมดปกติ'}
         </p>
 
         <div className="col" style={{ marginTop: 12 }}>

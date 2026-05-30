@@ -115,13 +115,36 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
     if (sig && sig !== playSigRef.current) {
       playSigRef.current = sig;
       const name = view.players.find((p) => p.seat === lp!.seat)?.name ?? '';
+      const sainua = view.mode === 'sainua';
       if (!(big && big.seat === lp!.seat)) {
         if (lp!.pass) small.push({ seat: lp!.seat, emoji: '😔' });
         else if (lp!.combo?.kind === 'triple')
-          big = { emoji: '🔥', title: 'TRIPLE', label: 'ตอง!', name, seat: lp!.seat };
+          big = {
+            emoji: '🔥',
+            title: 'TRIPLE',
+            label: sainua ? 'ตอง! ทุกคนจั่ว +1' : 'ตอง!',
+            name,
+            seat: lp!.seat,
+          };
         else if (lp!.combo?.kind === 'four')
-          big = { emoji: '💣', title: 'QUADRUPLE', label: 'สี่ใบ!', name, seat: lp!.seat };
+          big = {
+            emoji: '💣',
+            title: 'QUADRUPLE',
+            label: sainua ? 'สี่ใบ! ทุกคนจั่ว +2' : 'สี่ใบ!',
+            name,
+            seat: lp!.seat,
+          };
         else small.push({ seat: lp!.seat, emoji: COMBO_EMOJI[lp!.combo?.kind ?? ''] ?? '🙂' });
+      }
+      // จั่วเพิ่ม mode: show "🃏+N" over every seat that actually drew cards, so
+      // it's obvious the triple/four made the others draw.
+      if (sainua && (lp!.combo?.kind === 'triple' || lp!.combo?.kind === 'four')) {
+        for (const p of view.players) {
+          const pp = prev.players.find((x) => x.id === p.id);
+          if (!pp || p.seat === lp!.seat) continue;
+          const drew = p.handCount - pp.handCount;
+          if (drew > 0) small.push({ seat: p.seat, emoji: `🃏+${drew}` });
+        }
       }
     }
 
@@ -225,7 +248,7 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
         <span className="pill">
           รอบ {view.roundNumber}/{view.totalRounds}
         </span>
-        {view.mode === 'sainua' && <span className="pill">🌶️ ใส่นัว</span>}
+        {view.mode === 'sainua' && <span className="pill">🌶️ จั่วเพิ่ม</span>}
         <div className="spacer" />
         <MuteButton />
         {isHost ? (

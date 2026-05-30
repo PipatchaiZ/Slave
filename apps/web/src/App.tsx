@@ -235,8 +235,8 @@ function Home({ onError }: { onError: (m: string) => void }) {
             }}
           >
             <span className="mc-icon">🌶️</span>
-            <span className="mc-title">ใส่นัว</span>
-            <span className="mc-desc">ตบตอง→จั่ว1 · สี่ใบ→จั่ว2</span>
+            <span className="mc-title">จั่วเพิ่ม</span>
+            <span className="mc-desc">ลงตอง→คนอื่นจั่ว1 · สี่ใบ→จั่ว2</span>
           </div>
         </div>
         <label style={{ marginTop: 12 }}>จำนวนรอบ</label>

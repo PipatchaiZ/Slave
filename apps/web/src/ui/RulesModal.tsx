@@ -46,7 +46,7 @@ export function RulesModal({ onClose }: { onClose: () => void }) {
             className={`btn ${tab === 'sainua' ? 'primary' : 'ghost'}`}
             onClick={() => setTab('sainua')}
           >
-            🌶️ ใส่นัว
+            🌶️ จั่วเพิ่ม
           </button>
         </div>
         <ul className="rules-list">

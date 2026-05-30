@@ -350,6 +350,8 @@ label {
   font-size: 13px;
   color: var(--yellow);
   min-height: 18px;
+  /* Clear the bottom (your) seat, which overhangs the table edge a little. */
+  margin-top: 18px;
 }
 .banner.you {
   font-size: 17px;

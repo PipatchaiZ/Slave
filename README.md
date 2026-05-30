@@ -71,7 +71,7 @@ URL=http://localhost:3010 npx tsx scripts/smoke.ts
 - **ตบ:** Triple ข่ม Single, Four ข่ม Pair (ทั้งสองโหมด)
 - 3♣ นำ Round 1; Slave นำ Round ถัดไป; **ทิศวนสลับทุก Round**; เวลา 15 วิ/เทิร์น
 - ตำแหน่ง: King / Queen(≥4) / People / Vice-Slave(≥5) / Slave; แลก King↔Slave 2, Queen↔รองสุดท้าย 1
-- **โหมดใส่นัว:** ลงตอง→คนอื่นจั่ว 1, สี่ใบ→จั่ว 2 (จากกองที่ใช้แล้ว)
+- **โหมดจั่วเพิ่ม:** ลงตอง→คนอื่นจั่ว 1, สี่ใบ→จั่ว 2 (จากกองที่ใช้แล้ว)
 - แลกไพ่ President-style; กฎ Regicide โค่น King ที่ป้องกันไม่สำเร็จลงเป็น Slave
 - จบ Match ตามจำนวน Round ที่ตั้งไว้ตอนสร้างห้อง คิดแต้มตามตำแหน่ง
 
