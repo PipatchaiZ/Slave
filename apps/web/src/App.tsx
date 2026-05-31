@@ -103,7 +103,7 @@ export function App() {
 
   return (
     <>
-      {!connected && !booting && (
+      {!connected && !booting && !!view && (
         <div className="netbar">⚠ ขาดการเชื่อมต่อ • กำลังเชื่อมต่อใหม่…</div>
       )}
       {content}
