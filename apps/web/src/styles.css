@@ -366,9 +366,10 @@ label {
   /* Clear the bottom (your) seat, which overhangs the table edge a little. */
   margin-top: 18px;
 }
-/* Round-summary panel sits below the table — push it clear of the bottom seat. */
+/* Round-summary panel sits below the table — clear of the bottom seat, and
+   centred horizontally (auto side-margins; it has a max-width in a flex column). */
 .results-panel {
-  margin-top: 40px;
+  margin: 40px auto 0;
 }
 .banner.you {
   font-size: 17px;
@@ -638,10 +639,14 @@ label {
 .card.sm .card-rank.bottom {
   bottom: 2px;
   right: 2px;
+  left: auto; /* beat ".card.sm .card-rank{left}" so it hugs the right edge */
+  top: auto;
 }
 .card.lg .card-rank.bottom {
   bottom: 4px;
   right: 4px;
+  left: auto; /* beat ".card.lg .card-rank{left}" so it hugs the right edge */
+  top: auto;
 }
 .card.back {
   background: repeating-linear-gradient(45deg, #3b5dc9, #3b5dc9 6px, #29366f 6px, #29366f 12px);
