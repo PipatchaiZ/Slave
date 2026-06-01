@@ -238,7 +238,14 @@ label {
 }
 .seat.active {
   border-color: var(--yellow);
-  box-shadow: 0 0 0 3px var(--yellow), 0 0 14px var(--yellow);
+  box-shadow: 0 0 0 4px var(--yellow), 0 0 26px 6px var(--yellow);
+  z-index: 6; /* lift the active seat above its neighbours */
+  animation: seat-active-pulse 1.1s ease-in-out infinite;
+}
+@keyframes seat-active-pulse {
+  50% {
+    box-shadow: 0 0 0 4px var(--yellow), 0 0 34px 10px var(--yellow);
+  }
 }
 .seat.next {
   border-color: var(--panel-light);
@@ -434,24 +441,20 @@ label {
   z-index: 2;
   pointer-events: none;
   overflow: visible;
+  /* Fade the whole layer once (flattened) so the arrowhead sits opaquely over
+     the line instead of the line showing through a semi-transparent head. */
+  opacity: 0.5;
 }
+/* Thin yellow loop around the table showing which way the turn rotates. */
 .dir-path {
   fill: none;
   stroke: var(--yellow);
-  stroke-width: 3.5;
+  stroke-width: 1;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-dasharray: 7 4;
-  animation: dirflow 0.45s linear infinite;
-  filter: drop-shadow(0 0 3px #000);
 }
 .dir-head {
   fill: var(--yellow);
-}
-@keyframes dirflow {
-  to {
-    stroke-dashoffset: -11;
-  }
 }
 .tbl-seat {
   position: absolute;

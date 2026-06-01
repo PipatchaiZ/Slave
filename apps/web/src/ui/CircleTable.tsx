@@ -88,19 +88,24 @@ export function CircleTable({
     lastBySeat.set(pl.seat, { pass: pl.pass, cards: pl.combo?.cards ?? [] });
   }
 
-  // Direction arrow: a polyline tracing the perimeter from current -> next.
+  // Direction hint: a faint loop tracing the WHOLE table in the round's rotation
+  // direction, with an arrowhead, drawn inset so it sits inside the felt (not
+  // through the seats). Always shown while playing — it indicates which way the
+  // turn rotates this round.
   let arcPath = '';
-  if (playing && nextSeat != null && nextSeat !== view.turnSeat) {
+  if (playing && n >= 2) {
     const dir = direction || 1;
-    const t0 = dispIndex(view.turnSeat) / n;
-    const t1 = dispIndex(nextSeat) / n;
-    // Magnitude of the step along the perimeter, going the play direction.
-    let mag = dir > 0 ? (t1 - t0 + 1) % 1 : (t0 - t1 + 1) % 1;
-    if (mag === 0) mag = 1 / n;
-    const K = 18;
+    const cc = 50; // centre, in the 0..100 viewBox
+    const inset = 0.46; // pull the loop well inside so seats don't cover it
+    const gap = 0.05; // leave a gap at the bottom so the arrowhead and the tail don't touch
+    const K = 96;
     const pts: string[] = [];
     for (let k = 0; k <= K; k++) {
-      const [x, y] = perimeterPoint(t0 + dir * mag * (k / K));
+      const f = gap + (1 - 2 * gap) * (k / K); // fraction of the loop, leaving a bottom gap
+      const t = dir > 0 ? f : 1 - f; // travel in the rotation direction
+      const [px, py] = perimeterPoint(t);
+      const x = cc + (px - cc) * inset;
+      const y = cc + (py - cc) * inset;
       pts.push(`${x.toFixed(1)} ${y.toFixed(1)}`);
     }
     arcPath = 'M ' + pts.join(' L ');
