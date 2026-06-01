@@ -106,12 +106,14 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
     for (const p of view.players) {
       const pp = prev.players.find((x) => x.id === p.id);
       if (!pp) continue;
-      if (p.finished && !pp.finished) {
+      // A player who quit/was kicked is also marked finished — don't treat that
+      // as "went out" (no FINISHED burst / victory sound for them).
+      if (p.finished && !pp.finished && !p.left) {
         big = { emoji: '🎉', title: 'FINISHED', label: 'หมดมือ!', name: p.name, seat: p.seat };
         const fp = p.finishPosition ?? 99;
         if (fp === 0 || (fp === 1 && activeCount >= 4)) royalFinish = true; // King / Queen
       }
-      if (p.handCount === 1 && pp.handCount > 1) downToOne = true;
+      if (!p.left && p.handCount === 1 && pp.handCount > 1) downToOne = true;
     }
     if (royalFinish) sfx.royalFinish();
     else if (downToOne) sfx.lastCard();
