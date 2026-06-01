@@ -470,6 +470,11 @@ describe('regicide elimination', () => {
     expect(king.handCount).toBe(0); // hand discarded
     expect(king.hand.length).toBe(0);
     expect(state.turnSeat).not.toBe(0); // never the king's turn again this round
+    // ONLY the king is removed — everyone else keeps their cards and plays on.
+    expect(state.players[2].finished).toBe(false);
+    expect(state.players[2].handCount).toBe(2);
+    expect(state.players[3].finished).toBe(false);
+    expect(state.players[3].handCount).toBe(2);
   });
 
   it('does NOT eliminate the king when the king defends (goes out first)', () => {

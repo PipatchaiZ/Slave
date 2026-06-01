@@ -7,7 +7,7 @@ export function RoundOver({ view }: { view: GameView }) {
   const isHost = view.hostId === view.yourId;
   const rows = view.lastRoundResult ?? [];
   return (
-    <div className="panel" style={{ maxWidth: 560 }}>
+    <div className="panel results-panel" style={{ maxWidth: 560 }}>
       <h2>จบรอบที่ {view.roundNumber}</h2>
       <ResultTable view={view} />
       <div className="row" style={{ marginTop: 14 }}>

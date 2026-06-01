@@ -366,6 +366,10 @@ label {
   /* Clear the bottom (your) seat, which overhangs the table edge a little. */
   margin-top: 18px;
 }
+/* Round-summary panel sits below the table — push it clear of the bottom seat. */
+.results-panel {
+  margin-top: 40px;
+}
 .banner.you {
   font-size: 17px;
   color: #06210f;
