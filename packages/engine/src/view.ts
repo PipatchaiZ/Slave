@@ -17,6 +17,8 @@ export interface PlayerView {
   /** Provisional role to display right now (live King/Queen/Slave, regicide). */
   liveRole: Role | null;
   score: number;
+  /** Quit/kicked mid-match — hidden from the table. */
+  left: boolean;
   isYou: boolean;
 }
 
@@ -72,6 +74,7 @@ export function viewFor(state: GameState, viewerId: string): GameView {
       role: p.role,
       liveRole: live[p.id] ?? p.role,
       score: p.score,
+      left: p.left,
       isYou: p.id === viewerId,
     })),
     totalRounds: state.totalRounds,

@@ -256,20 +256,20 @@ label {
   background: #1c3a2a;
 }
 .seat-name {
-  font-size: 11px;
+  font-size: 13px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .seat-meta {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .seat-status {
-  font-size: 11px;
+  font-size: 12px;
   min-height: 12px;
   padding: 3px 4px;
   border: 2px solid var(--shadow);
@@ -315,10 +315,15 @@ label {
 
 .badge {
   display: inline-block;
-  font-size: 9px;
+  font-size: 10px;
   padding: 3px 5px;
   border: 2px solid var(--shadow);
   color: #000;
+}
+/* Carry-over (previous-round) position while this round is still undecided. */
+.badge.prev {
+  opacity: 0.5;
+  border-style: dashed;
 }
 .badge.king {
   background: var(--yellow);
@@ -454,7 +459,11 @@ label {
   padding: 6px;
 }
 .tbl-seat .seat-meta {
-  font-size: 10px;
+  font-size: 12px;
+  /* wrap (don't clip) so the ⭐ score is always visible at the larger size */
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 /* Narrow screens: shrink the table and pin the hand + controls to the bottom. */
@@ -501,10 +510,10 @@ label {
     gap: 3px;
   }
   .tbl-seat .seat-name {
-    font-size: 10px;
+    font-size: 11px;
   }
   .tbl-seat .seat-meta {
-    font-size: 9px;
+    font-size: 11px;
     min-height: 0;
     /* show the ⭐ score instead of clipping it off the end */
     white-space: normal;
@@ -512,11 +521,11 @@ label {
     text-overflow: clip;
   }
   .tbl-seat .seat-status {
-    font-size: 9px;
+    font-size: 10px;
     min-height: 0;
   }
   .tbl-seat .badge {
-    font-size: 8px;
+    font-size: 9px;
     padding: 1px 3px;
   }
   .rect-pile .card.lg {
@@ -614,20 +623,21 @@ label {
 .card.lg .card-suit {
   font-size: 30px;
 }
+/* Bottom-right index, rotated 180° like a real card, flush to the right edge. */
 .card-rank.bottom {
   top: auto;
   left: auto;
   bottom: 3px;
-  right: 5px;
+  right: 3px;
   transform: rotate(180deg);
 }
 .card.sm .card-rank.bottom {
   bottom: 2px;
-  right: 4px;
+  right: 2px;
 }
 .card.lg .card-rank.bottom {
-  bottom: 5px;
-  right: 6px;
+  bottom: 4px;
+  right: 4px;
 }
 .card.back {
   background: repeating-linear-gradient(45deg, #3b5dc9, #3b5dc9 6px, #29366f 6px, #29366f 12px);

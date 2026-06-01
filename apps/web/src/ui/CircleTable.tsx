@@ -72,9 +72,14 @@ export function CircleTable({
   bigReaction: BigReaction | null;
   direction: number;
 }) {
-  const you = view.players.find((p) => p.isYou)!;
-  const n = view.players.length;
-  const dispIndex = (seat: number) => (seat - you.seat + n) % n;
+  // Players who quit are hidden; the ring re-lays out around the remaining ones.
+  const seated = view.players.filter((p) => !p.left).sort((a, b) => a.seat - b.seat);
+  const n = seated.length;
+  const youPos = Math.max(0, seated.findIndex((p) => p.isYou));
+  const dispIndex = (seat: number) => {
+    const idx = seated.findIndex((p) => p.seat === seat);
+    return idx < 0 ? 0 : (idx - youPos + n) % n;
+  };
   const playing = view.phase === 'playing';
   const top = view.trick.top?.combo ?? null;
 
@@ -161,7 +166,7 @@ export function CircleTable({
         )}
       </div>
 
-      {view.players.map((p) => {
+      {seated.map((p) => {
         const [x, y] = perimeterPoint(dispIndex(p.seat) / n);
         const isActive = playing && view.turnSeat === p.seat;
         const cls = ['seat'];
@@ -174,6 +179,9 @@ export function CircleTable({
         // Live role from the server: finishers show their standing immediately,
         // and a regicided defending king flips to Slave the moment it's locked.
         const liveRole = p.liveRole;
+        // Still-playing players (round 2+) show last round's position as a faded
+        // carry-over, so it isn't mistaken for this round's live standing.
+        const carryOver = playing && !p.finished && view.roundNumber > 1;
         return (
           <div key={p.id} className="tbl-seat" style={{ left: `${x}%`, top: `${y}%` }}>
             <div className={cls.join(' ')}>
@@ -185,9 +193,9 @@ export function CircleTable({
                 {p.isYou ? ' (คุณ)' : ''}
               </div>
               <div className="seat-badges">
-                <RoleBadge role={liveRole} />
+                <RoleBadge role={liveRole} prev={carryOver} />
               </div>
-              <div className="seat-meta">🃏 {p.handCount} · ⭐ {p.score}</div>
+              <div className="seat-meta">🃏{p.handCount}·⭐{p.score}</div>
               <div className="seat-meta">
                 {!p.connected && <span className="offline-tag">⚠ หลุด </span>}
                 {p.finished && '✓ หมดมือ '}

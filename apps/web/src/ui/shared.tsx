@@ -28,12 +28,18 @@ export function roleText(role: Role): string {
   return `${ROLE_ICON[role]} ${ROLE_LABEL[role]}`;
 }
 
-export function RoleBadge({ role }: { role: Role | null }) {
+export function RoleBadge({ role, prev }: { role: Role | null; prev?: boolean }) {
   if (!role) return null;
   // A non-breaking space glues the icon to the label so the icon never orphans
   // onto its own line; a long label like VICE-SLAVE may still wrap at its hyphen.
   const nbsp = String.fromCharCode(0xa0);
-  return <span className={`badge ${role}`}>{ROLE_ICON[role] + nbsp + ROLE_LABEL[role]}</span>;
+  // `prev` = a carry-over position from the previous round (not yet decided this
+  // round) — rendered faded + with a "↩" so it isn't read as the live standing.
+  return (
+    <span className={`badge ${role}${prev ? ' prev' : ''}`}>
+      {(prev ? '↩' + nbsp : '') + ROLE_ICON[role] + nbsp + ROLE_LABEL[role]}
+    </span>
+  );
 }
 
 export function MuteButton() {

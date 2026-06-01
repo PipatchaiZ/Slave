@@ -35,7 +35,7 @@ export function RoundOver({ view }: { view: GameView }) {
 }
 
 export function MatchOver({ view, onLeave }: { view: GameView; onLeave: () => void }) {
-  const standings = [...view.players].sort((a, b) => b.score - a.score);
+  const standings = view.players.filter((p) => !p.left).sort((a, b) => b.score - a.score);
   const champ = standings[0];
   return (
     <div className="panel" style={{ maxWidth: 560 }}>

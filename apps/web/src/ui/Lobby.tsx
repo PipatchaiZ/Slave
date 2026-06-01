@@ -94,7 +94,7 @@ export function Lobby({ view, onLeave }: { view: GameView; onLeave: () => void }
             ออก
           </button>
         </div>
-        {isHost && !canStart && <p className="small muted">ต้องมีผู้เล่น 3-8 คนจึงเริ่มได้</p>}
+        {isHost && !canStart && <p className="small muted">ต้องมีผู้เล่น 3-6 คนจึงเริ่มได้</p>}
       </div>
     </Screen>
   );

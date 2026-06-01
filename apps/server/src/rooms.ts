@@ -8,6 +8,7 @@ import {
   chooseExchange,
   continueToNextRound,
   createGame,
+  dropPlayer,
   pass,
   play,
   playerById,
@@ -254,9 +255,15 @@ export class RoomManager {
       } catch {
         /* ignore */
       }
-    } else if (room.state.hostId === ref.playerId) {
-      const heir = room.state.players.find((p) => p.connected && p.id !== ref.playerId);
-      if (heir) room.state.hostId = heir.id;
+    } else {
+      // Mid-match: drop them from the round (hand to the pile, out of rotation,
+      // excluded from ranking) and block rejoin.
+      room.tokens.delete(ref.playerId);
+      try {
+        dropPlayer(room.state, ref.playerId);
+      } catch {
+        /* ignore */
+      }
     }
 
     if (room.sockets.size === 0) room.emptySince = Date.now();
@@ -357,8 +364,13 @@ export class RoomManager {
         /* ignore */
       }
     } else {
-      // Mid-game: keep the seat but mark it permanently gone (auto-pass covers it).
-      target.connected = false;
+      // Mid-match: drop from the round — hand to the pile, out of rotation,
+      // excluded from ranking (roles recompute for the remaining head-count).
+      try {
+        dropPlayer(room.state, targetId);
+      } catch {
+        /* ignore */
+      }
     }
 
     if (room.sockets.size === 0) room.emptySince = Date.now();

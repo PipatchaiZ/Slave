@@ -170,7 +170,7 @@ function Home({ onError }: { onError: (m: string) => void }) {
   return (
     <Screen>
       <div className="title">SLAVE</div>
-      <div className="subtitle">เกมไพ่สลาฟ · 3-8 คน · ออนไลน์</div>
+      <div className="subtitle">เกมไพ่สลาฟ · 3-6 คน · ออนไลน์</div>
       <button className="btn ghost" onClick={() => setShowRules(true)}>
         📖 วิธีเล่น
       </button>

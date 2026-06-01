@@ -16,6 +16,7 @@ export interface Player {
   finishPosition: number | null; // 0-based order this player went out this round
   role: Role | null; // role from the most recently completed round
   score: number;
+  left: boolean; // quit/kicked mid-match — out of play, excluded from ranking
 }
 
 export interface PlayLogEntry {

@@ -24,7 +24,7 @@ import {
 } from './types';
 
 export const MIN_PLAYERS = 3;
-export const MAX_PLAYERS = 8;
+export const MAX_PLAYERS = 6;
 
 function emptyTrick(leadSeat: number): TrickState {
   return { leadSeat, top: null, passed: [], plays: [] };
@@ -82,6 +82,7 @@ export function addPlayer(state: GameState, who: { id: string; name: string }): 
     finishPosition: null,
     role: null,
     score: 0,
+    left: false,
   };
   state.players.push(player);
   return player;
@@ -92,6 +93,57 @@ export function removePlayer(state: GameState, id: string): void {
   state.players = state.players.filter((p) => p.id !== id);
   state.players.forEach((p, i) => (p.seat = i));
   if (state.hostId === id && state.players.length > 0) state.hostId = state.players[0].id;
+}
+
+/**
+ * Quit/kick. In the lobby this fully removes the player. Once the match is
+ * running it marks the player `left` (out of play): their hand is discarded to
+ * the pile, they leave the turn rotation, and they're excluded from ranking so
+ * roles recompute for the remaining head-count. The turn/exchange is repaired
+ * so the game keeps moving and never stalls on the departed seat.
+ */
+export function dropPlayer(state: GameState, id: string, rng: Rng = Math.random): void {
+  const p = playerById(state, id);
+  if (!p) return;
+  if (state.phase === 'lobby') {
+    removePlayer(state, id);
+    return;
+  }
+  if (p.left) return;
+
+  state.discard.push(...p.hand);
+  p.hand = [];
+  p.handCount = 0;
+  p.connected = false;
+  p.left = true;
+  p.finished = true;
+
+  if (state.hostId === id) {
+    const heir = state.players.find((x) => !x.left);
+    if (heir) state.hostId = heir.id;
+  }
+
+  if (state.phase === 'playing') {
+    if (activeNotFinished(state).length <= 1) {
+      endRound(state);
+    } else if (state.turnSeat === p.seat) {
+      if (state.trick.top) {
+        advance(state, p.seat); // they were responding — move to the next player
+      } else {
+        // they were leading an empty trick — hand the lead to the next active seat
+        const eligible = new Set(activeNotFinished(state).map((x) => x.seat));
+        const next = nextSeatIn(state, p.seat, eligible);
+        state.trick = emptyTrick(next);
+        state.turnSeat = next;
+      }
+    }
+  } else if (state.phase === 'exchange' && state.exchange) {
+    // Drop exchange obligations touching the departed player; resolve if done.
+    state.exchange.choices = state.exchange.choices.filter((c) => c.fromId !== id && c.toId !== id);
+    const allChosen = state.exchange.choices.every((c) => c.chosen !== null);
+    if (state.exchange.choices.length === 0 || allChosen) resolveExchange(state);
+  }
+  void rng;
 }
 
 /** Round-1 leader: holder of 3♣ if it was dealt, otherwise the lowest card. */
@@ -111,14 +163,24 @@ function firstLeadSeat(state: GameState): number {
 }
 
 function dealToPlayers(state: GameState, rng: Rng): void {
+  const playing = state.players.filter((p) => !p.left);
   const deck = shuffle(createDeck(), rng);
-  const hands = deal(deck, state.players.length);
-  state.players.forEach((p, i) => {
+  const hands = deal(deck, playing.length);
+  playing.forEach((p, i) => {
     p.hand = hands[i];
     p.handCount = p.hand.length;
     p.finished = false;
     p.finishPosition = null;
   });
+  // Players who quit get no cards and stay out of the round.
+  state.players
+    .filter((p) => p.left)
+    .forEach((p) => {
+      p.hand = [];
+      p.handCount = 0;
+      p.finished = true;
+      p.finishPosition = null;
+    });
   state.finishCounter = 0;
   state.discard = [];
 }
@@ -224,9 +286,14 @@ function resolveExchange(state: GameState): void {
   });
   state.exchange = null;
 
-  // Previous slave leads the new round.
+  // Previous slave leads the new round — unless they quit, then the next player in.
   const slaveId = state.lastRoundResult!.at(-1)!.playerId;
-  const lead = playerById(state, slaveId)!.seat;
+  const slave = playerById(state, slaveId)!;
+  let lead = slave.seat;
+  if (slave.left) {
+    const eligible = new Set(state.players.filter((x) => !x.left).map((x) => x.seat));
+    lead = nextSeatIn(state, slave.seat, eligible);
+  }
   state.trick = emptyTrick(lead);
   state.turnSeat = lead;
   state.phase = 'playing';
@@ -297,6 +364,19 @@ export function play(
   if (player.hand.length === 0) {
     player.finished = true;
     player.finishPosition = state.finishCounter++;
+    // Regicide: if the FIRST player out this round is NOT the defending king,
+    // the king is dethroned on the spot — out for the rest of the round (hand
+    // discarded) and ranked last at scoring.
+    if (player.finishPosition === 0 && state.defendingKingId && state.defendingKingId !== player.id) {
+      const king = playerById(state, state.defendingKingId);
+      if (king && !king.finished) {
+        state.discard.push(...king.hand);
+        king.hand = [];
+        king.handCount = 0;
+        king.finished = true;
+        king.finishPosition = state.finishCounter++;
+      }
+    }
   }
 
   // sainua: playing a triple/four makes everyone else draw from the used pile
@@ -409,7 +489,7 @@ export function roleForRank(index: number, playerCount: number): Role {
  * Outside an active round this just mirrors the stored (final) role.
  */
 export function liveRoles(state: GameState): Record<string, Role | null> {
-  const n = state.players.length;
+  const n = state.players.filter((p) => !p.left).length;
   const out: Record<string, Role | null> = {};
   if (state.phase !== 'playing') {
     for (const p of state.players) out[p.id] = p.role;
@@ -424,7 +504,9 @@ export function liveRoles(state: GameState): Record<string, Role | null> {
   const kingFinishPos = kingPlayer?.finishPosition ?? null;
 
   for (const p of state.players) {
-    if (regicideLocked && p.id === kingId) {
+    if (p.left) {
+      out[p.id] = p.role; // out of play
+    } else if (regicideLocked && p.id === kingId) {
       out[p.id] = 'slave'; // demoted to the very bottom
     } else if (p.finished && p.finishPosition != null) {
       // Removing the regicided king shifts later finishers up one place.
@@ -469,7 +551,10 @@ function endRound(state: GameState): void {
     remaining[0].finishPosition = state.finishCounter++;
   }
 
+  // Only players still in the match are ranked; quitters are excluded, so roles
+  // (King/Queen/.../Slave) are computed for the remaining head-count.
   const rawIds = [...state.players]
+    .filter((p) => !p.left)
     .sort((a, b) => (a.finishPosition ?? 0) - (b.finishPosition ?? 0))
     .map((p) => p.id);
 

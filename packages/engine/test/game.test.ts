@@ -8,6 +8,7 @@ import {
   continueToNextRound,
   createGame,
   detectCombo,
+  dropPlayer,
   liveRoles,
   pass,
   play,
@@ -50,11 +51,11 @@ function playRoundAuto(state: GameState): void {
 }
 
 describe('lobby and match start', () => {
-  it('enforces the 3-8 player range', () => {
+  it('enforces the 3-6 player range', () => {
     const two = newGame(2);
     expect(() => startMatch(two, 3)).toThrow();
-    const nine = newGame(8);
-    expect(() => addPlayer(nine, { id: 'x', name: 'X' })).toThrow();
+    const six = newGame(6);
+    expect(() => addPlayer(six, { id: 'x', name: 'X' })).toThrow();
   });
 
   it('round 1 lead is whoever holds 3♣', () => {
@@ -133,7 +134,7 @@ describe('turn rules', () => {
 
 describe('full round invariants', () => {
   it('produces exactly one king and conserves points', () => {
-    for (const n of [3, 4, 5, 6, 7, 8]) {
+    for (const n of [3, 4, 5, 6]) {
       const state = newGame(n);
       startMatch(state, 1, mulberry32(n * 1000 + 1));
       playRoundAuto(state);
@@ -441,6 +442,99 @@ describe('liveRoles (provisional in-round badges)', () => {
     const roles = liveRoles(state);
     expect(roles.p0).toBe('slave');
     expect(roles.p1).toBe('king');
+  });
+});
+
+describe('regicide elimination', () => {
+  const card = (rank: Rank, suit: Suit): Card => ({ rank, suit });
+  it('dethrones the king the moment someone else goes out first', () => {
+    const state = newGame(4);
+    state.phase = 'playing';
+    state.totalRounds = 2;
+    state.roundNumber = 2;
+    state.defendingKingId = state.players[0].id; // p0 must defend
+    state.players[0].hand = [card('K', 'S'), card('Q', 'S')];
+    state.players[1].hand = [card('3', 'C')]; // p1 goes out first
+    state.players[2].hand = [card('5', 'D'), card('6', 'D')];
+    state.players[3].hand = [card('7', 'H'), card('8', 'H')];
+    state.players.forEach((p) => (p.handCount = p.hand.length));
+    state.trick = { leadSeat: 1, top: null, passed: [], plays: [] };
+    state.turnSeat = 1;
+    state.finishCounter = 0;
+
+    play(state, state.players[1].id, ['3C']);
+
+    const king = state.players[0];
+    expect(state.players[1].finished).toBe(true);
+    expect(king.finished).toBe(true); // out immediately
+    expect(king.handCount).toBe(0); // hand discarded
+    expect(king.hand.length).toBe(0);
+    expect(state.turnSeat).not.toBe(0); // never the king's turn again this round
+  });
+
+  it('does NOT eliminate the king when the king defends (goes out first)', () => {
+    const state = newGame(4);
+    state.phase = 'playing';
+    state.totalRounds = 2;
+    state.roundNumber = 2;
+    state.defendingKingId = state.players[0].id;
+    state.players[0].hand = [card('3', 'C')]; // king goes out first -> defends
+    state.players[1].hand = [card('5', 'D'), card('6', 'D')];
+    state.players[2].hand = [card('7', 'H'), card('8', 'H')];
+    state.players[3].hand = [card('9', 'S'), card('A', 'S')];
+    state.players.forEach((p) => (p.handCount = p.hand.length));
+    state.trick = { leadSeat: 0, top: null, passed: [], plays: [] };
+    state.turnSeat = 0;
+    state.finishCounter = 0;
+
+    play(state, state.players[0].id, ['3C']);
+
+    expect(state.players[0].finished).toBe(true);
+    expect(state.players[0].finishPosition).toBe(0);
+    // others keep their cards — no mass elimination
+    expect(state.players[1].finished).toBe(false);
+    expect(state.players[1].handCount).toBe(2);
+  });
+});
+
+describe('dropPlayer (quit / kick mid-match)', () => {
+  it('removes the quitter from rotation, discards the hand, excludes from ranking', () => {
+    const state = newGame(4);
+    startMatch(state, 1, mulberry32(7));
+    expect(state.phase).toBe('playing');
+    const turnId = state.players.find((p) => p.seat === state.turnSeat)!.id;
+    const droppedSeat = state.players.find((p) => p.id === turnId)!.seat;
+
+    dropPlayer(state, turnId);
+
+    const dropped = playerById(state, turnId)!;
+    expect(dropped.left).toBe(true);
+    expect(dropped.finished).toBe(true);
+    expect(dropped.handCount).toBe(0);
+    expect(state.turnSeat).not.toBe(droppedSeat); // turn never stalls on the quitter
+
+    playRoundAuto(state);
+    expect(state.phase).toBe('match_over');
+    const ranked = state.lastRoundResult!.map((r) => r.playerId);
+    expect(ranked).not.toContain(turnId); // quitter not ranked
+    expect(ranked.length).toBe(3); // roles recomputed for the remaining 3
+    expect(state.lastRoundResult!.filter((r) => r.role === 'king')).toHaveLength(1);
+    expect(state.lastRoundResult!.filter((r) => r.role === 'slave')).toHaveLength(1);
+  });
+
+  it('next round deals no cards to a player who left', () => {
+    const state = newGame(4);
+    startMatch(state, 3, mulberry32(11));
+    const quitId = state.players[2].id;
+    dropPlayer(state, quitId);
+    playRoundAuto(state);
+    expect(state.phase).toBe('round_over');
+    continueToNextRound(state, mulberry32(12));
+    const quitter = playerById(state, quitId)!;
+    expect(quitter.handCount).toBe(0);
+    expect(quitter.finished).toBe(true);
+    // the three remaining players all got cards
+    expect(state.players.filter((p) => !p.left && p.handCount > 0)).toHaveLength(3);
   });
 });
 
