@@ -509,6 +509,8 @@ describe('dropPlayer (quit / kick mid-match)', () => {
     expect(state.phase).toBe('playing');
     const turnId = state.players.find((p) => p.seat === state.turnSeat)!.id;
     const droppedSeat = state.players.find((p) => p.id === turnId)!.seat;
+    const handBefore = playerById(state, turnId)!.handCount;
+    const discardBefore = state.discard.length;
 
     dropPlayer(state, turnId);
 
@@ -516,6 +518,7 @@ describe('dropPlayer (quit / kick mid-match)', () => {
     expect(dropped.left).toBe(true);
     expect(dropped.finished).toBe(true);
     expect(dropped.handCount).toBe(0);
+    expect(state.discard.length).toBe(discardBefore + handBefore); // hand goes to the pile
     expect(state.turnSeat).not.toBe(droppedSeat); // turn never stalls on the quitter
 
     playRoundAuto(state);
