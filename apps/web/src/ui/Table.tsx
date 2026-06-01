@@ -100,12 +100,21 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
       null;
 
     // Going out is the headline event.
+    const activeCount = view.players.filter((p) => !p.left).length;
+    let royalFinish = false; // someone went out as King/Queen
+    let downToOne = false; // someone is now on their last card
     for (const p of view.players) {
       const pp = prev.players.find((x) => x.id === p.id);
-      if (pp && p.finished && !pp.finished) {
+      if (!pp) continue;
+      if (p.finished && !pp.finished) {
         big = { emoji: '🎉', title: 'FINISHED', label: 'หมดมือ!', name: p.name, seat: p.seat };
+        const fp = p.finishPosition ?? 99;
+        if (fp === 0 || (fp === 1 && activeCount >= 4)) royalFinish = true; // King / Queen
       }
+      if (p.handCount === 1 && pp.handCount > 1) downToOne = true;
     }
+    if (royalFinish) sfx.royalFinish();
+    else if (downToOne) sfx.lastCard();
 
     const lp = view.trick.plays.at(-1);
     const sig =
@@ -116,6 +125,9 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
       playSigRef.current = sig;
       const name = view.players.find((p) => p.seat === lp!.seat)?.name ?? '';
       const sainua = view.mode === 'sainua';
+      // Slap sounds fire on any triple/four played (independent of the visuals).
+      if (!lp!.pass && lp!.combo?.kind === 'triple') sfx.slapTriple();
+      else if (!lp!.pass && lp!.combo?.kind === 'four') sfx.slapFour();
       if (!(big && big.seat === lp!.seat)) {
         if (lp!.pass) small.push({ seat: lp!.seat, emoji: '😔' });
         else if (lp!.combo?.kind === 'triple')

@@ -36,8 +36,24 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webDist = path.resolve(here, '../../web/dist');
 if (fs.existsSync(webDist)) {
-  app.use(express.static(webDist));
-  app.get('*', (_req, res) => res.sendFile(path.join(webDist, 'index.html')));
+  app.use(
+    express.static(webDist, {
+      setHeaders(res, filePath) {
+        if (filePath.endsWith('index.html')) {
+          res.setHeader('Cache-Control', 'no-cache'); // always pick up new asset refs
+        } else if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // content-hashed
+        } else {
+          // bgm.mp3, favicons, og-image… — stable names, cache a week
+          res.setHeader('Cache-Control', 'public, max-age=604800');
+        }
+      },
+    }),
+  );
+  app.get('*', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(webDist, 'index.html'));
+  });
 }
 
 function msg(e: unknown): string {

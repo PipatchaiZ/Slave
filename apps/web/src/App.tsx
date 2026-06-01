@@ -11,8 +11,8 @@ import {
   socket,
   useGameView,
 } from './net';
-import { resumeAudio, sfx } from './audio';
-import { Screen } from './ui/shared';
+import { resumeAudio, setBgmActive, sfx } from './audio';
+import { MuteButton, Screen } from './ui/shared';
 import { Lobby } from './ui/Lobby';
 import { Table } from './ui/Table';
 import { RulesModal } from './ui/RulesModal';
@@ -73,6 +73,11 @@ export function App() {
     const t = setTimeout(() => setError(null), 3200);
     return () => clearTimeout(t);
   }, [error, setError]);
+
+  // Background music: home screen + lobby only (off once the game starts).
+  useEffect(() => {
+    setBgmActive(!booting && (!view || view.phase === 'lobby'));
+  }, [booting, view]);
 
   const leave = () => {
     socket.emit(EV.leave); // explicit, immediate removal (no grace)
@@ -171,9 +176,12 @@ function Home({ onError }: { onError: (m: string) => void }) {
     <Screen>
       <div className="title">SLAVE</div>
       <div className="subtitle">เกมไพ่สลาฟ · 3-6 คน · ออนไลน์</div>
-      <button className="btn ghost" onClick={() => setShowRules(true)}>
-        📖 วิธีเล่น
-      </button>
+      <div className="row" style={{ justifyContent: 'center', gap: 8 }}>
+        <button className="btn ghost" onClick={() => setShowRules(true)}>
+          📖 วิธีเล่น
+        </button>
+        <MuteButton />
+      </div>
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
 
       {session && (
