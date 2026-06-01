@@ -5,3 +5,4 @@ dist/
 .env
 .scratch/
 scripts/.creds.json
+.claude/
