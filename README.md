@@ -1,3 +1,13 @@
+---
+title: SLAVE — เกมไพ่สลาฟ
+emoji: 🃏
+colorFrom: purple
+colorTo: indigo
+sdk: docker
+app_port: 3001
+pinned: false
+---
+
 # SLAVE — เกมไพ่สลาฟ (ออนไลน์ 8-bit)
 
 เกมไพ่สลาฟ 3-6 คนแบบออนไลน์เรียลไทม์ สไตล์ 8-bit ไม่มีฐานข้อมูล (state อยู่ใน memory)
@@ -44,7 +54,13 @@ npm start          # node apps/server/dist/index.js เสิร์ฟทั้�
 
 ระบบต้องรันเป็น **persistent service + WebSocket** (ไม่ใช่ static/serverless) และเป็น **อินสแตนซ์เดียว** (state อยู่ใน RAM)
 
-**Render (ง่ายสุด):**
+**Hugging Face Spaces (ฟรีทเทียร์สเปกดี — 2 vCPU/16GB, หลับช้ากว่า Render):**
+1. สร้าง Space ใหม่ที่ [huggingface.co/new-space](https://huggingface.co/new-space) เลือก SDK = **Docker** (frontmatter ใน README นี้ + [Dockerfile](Dockerfile) พร้อมแล้ว)
+2. push repo ขึ้น Space: `git remote add hf https://huggingface.co/spaces/<user>/<space>` แล้ว `git push hf main` — หรือตั้ง auto-sync จาก GitHub ด้วย [.github/workflows/sync-to-hf.yml](.github/workflows/sync-to-hf.yml) (ตั้ง secret `HF_TOKEN` + variable `HF_SPACE` ใน GitHub repo)
+3. ให้ผู้เล่นเข้าผ่าน **direct URL** `https://<user>-<space>.hf.space` (ไม่ใช่หน้า Space ที่เป็น iframe — เสียง/WebSocket ทำงานตรงกว่า)
+4. ตั้ง `REDIS_URL` (ถ้าใช้) ใน Space Settings → Variables and secrets
+
+**Render:**
 1. push repo ขึ้น GitHub
 2. Render → New → **Blueprint** → เลือก repo (ใช้ [render.yaml](render.yaml) ที่ให้มา) — หรือ New → Web Service แล้วตั้ง Build = `npm install --include=dev && npm run build`, Start = `npm start`
 3. Render ใส่ `PORT` ให้อัตโนมัติ, health check ที่ `/health`

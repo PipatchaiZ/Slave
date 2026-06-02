@@ -1,4 +1,4 @@
-# Multi-stage build — works on Fly.io, Koyeb, Render (Docker), any container host.
+# Multi-stage build — works on HF Spaces, Fly.io, Koyeb, Render (Docker), any container host.
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY . .
@@ -15,5 +15,7 @@ COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/apps/server/package.json ./apps/server/package.json
 COPY --from=build /app/apps/server/dist ./apps/server/dist
 COPY --from=build /app/apps/web/dist ./apps/web/dist
+# HF Spaces (and good practice generally): run as non-root, uid 1000.
+USER node
 EXPOSE 3001
 CMD ["node", "apps/server/dist/index.js"]
