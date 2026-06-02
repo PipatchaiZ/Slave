@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ vars.HF_SPACE != '' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Push snapshot to Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
