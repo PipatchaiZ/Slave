@@ -54,18 +54,13 @@ npm start          # node apps/server/dist/index.js เสิร์ฟทั้�
 
 ระบบต้องรันเป็น **persistent service + WebSocket** (ไม่ใช่ static/serverless) และเป็น **อินสแตนซ์เดียว** (state อยู่ใน RAM)
 
-**Hugging Face Spaces (ฟรีทเทียร์สเปกดี — 2 vCPU/16GB, หลับช้ากว่า Render):**
+**Hugging Face Spaces (ที่ใช้อยู่ปัจจุบัน — ฟรีทเทียร์ 2 vCPU/16GB):**
 1. สร้าง Space ใหม่ที่ [huggingface.co/new-space](https://huggingface.co/new-space) เลือก SDK = **Docker** (frontmatter ใน README นี้ + [Dockerfile](Dockerfile) พร้อมแล้ว)
 2. push ขึ้น Space — แนะนำตั้ง auto-sync จาก GitHub ด้วย [.github/workflows/sync-to-hf.yml](.github/workflows/sync-to-hf.yml) (ตั้ง secret `HF_TOKEN` + variable `HF_SPACE` ใน GitHub repo) — workflow จะ push เป็น snapshot ที่ track `*.mp3` ด้วย LFS ให้เอง เพราะ HF ปฏิเสธไฟล์ binary เกิน ~1MB ที่ไม่อยู่ใน LFS (push `main` ตรง ๆ จะโดน reject เพราะ `bgm.mp3`)
 3. ให้ผู้เล่นเข้าผ่าน **direct URL** `https://<user>-<space>.hf.space` (ไม่ใช่หน้า Space ที่เป็น iframe — เสียง/WebSocket ทำงานตรงกว่า)
 4. ตั้ง `REDIS_URL` (ถ้าใช้) ใน Space Settings → Variables and secrets
 
-**Render:**
-1. push repo ขึ้น GitHub
-2. Render → New → **Blueprint** → เลือก repo (ใช้ [render.yaml](render.yaml) ที่ให้มา) — หรือ New → Web Service แล้วตั้ง Build = `npm install --include=dev && npm run build`, Start = `npm start`
-3. Render ใส่ `PORT` ให้อัตโนมัติ, health check ที่ `/health`
-
-**Docker (Fly.io / Koyeb / ที่อื่น):** มี [Dockerfile](Dockerfile) ให้แล้ว — `docker build -t slave . && docker run -p 3001:3001 slave` หรือ `fly launch` / `fly deploy`
+**Docker (Fly.io / Koyeb / Render / ที่อื่น):** มี [Dockerfile](Dockerfile) ให้แล้ว — `docker build -t slave . && docker run -p 3001:3001 slave` หรือ `fly launch` / `fly deploy`
 
 ปรับเวลาต่อเทิร์นได้ผ่าน env `TURN_TIMEOUT_MS` (ดีฟอลต์ 15000)
 
