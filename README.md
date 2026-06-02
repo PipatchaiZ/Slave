@@ -56,7 +56,7 @@ npm start          # node apps/server/dist/index.js เสิร์ฟทั้�
 
 **Hugging Face Spaces (ฟรีทเทียร์สเปกดี — 2 vCPU/16GB, หลับช้ากว่า Render):**
 1. สร้าง Space ใหม่ที่ [huggingface.co/new-space](https://huggingface.co/new-space) เลือก SDK = **Docker** (frontmatter ใน README นี้ + [Dockerfile](Dockerfile) พร้อมแล้ว)
-2. push repo ขึ้น Space: `git remote add hf https://huggingface.co/spaces/<user>/<space>` แล้ว `git push hf main` — หรือตั้ง auto-sync จาก GitHub ด้วย [.github/workflows/sync-to-hf.yml](.github/workflows/sync-to-hf.yml) (ตั้ง secret `HF_TOKEN` + variable `HF_SPACE` ใน GitHub repo)
+2. push ขึ้น Space — แนะนำตั้ง auto-sync จาก GitHub ด้วย [.github/workflows/sync-to-hf.yml](.github/workflows/sync-to-hf.yml) (ตั้ง secret `HF_TOKEN` + variable `HF_SPACE` ใน GitHub repo) — workflow จะ push เป็น snapshot ที่ track `*.mp3` ด้วย LFS ให้เอง เพราะ HF ปฏิเสธไฟล์ binary เกิน ~1MB ที่ไม่อยู่ใน LFS (push `main` ตรง ๆ จะโดน reject เพราะ `bgm.mp3`)
 3. ให้ผู้เล่นเข้าผ่าน **direct URL** `https://<user>-<space>.hf.space` (ไม่ใช่หน้า Space ที่เป็น iframe — เสียง/WebSocket ทำงานตรงกว่า)
 4. ตั้ง `REDIS_URL` (ถ้าใช้) ใน Space Settings → Variables and secrets
 
