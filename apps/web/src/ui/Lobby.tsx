@@ -4,6 +4,7 @@ import { socket } from '../net';
 import { sfx } from '../audio';
 import { MuteButton, Screen } from './shared';
 import { RulesModal } from './RulesModal';
+import { PixelSprite } from './pixel';
 
 export function Lobby({ view, onLeave }: { view: GameView; onLeave: () => void }) {
   const isHost = view.hostId === view.yourId;
@@ -31,7 +32,7 @@ export function Lobby({ view, onLeave }: { view: GameView; onLeave: () => void }
           <h2>ห้องรอผู้เล่น</h2>
           <span className="row" style={{ gap: 6 }}>
             <button className="pill" onClick={() => setShowRules(true)}>
-              📖 กฎ
+              <PixelSprite className="ico" name="cardicon" unit={2} /> กฎ
             </button>
             <MuteButton />
           </span>
@@ -40,12 +41,26 @@ export function Lobby({ view, onLeave }: { view: GameView; onLeave: () => void }
         <div className="code-chip">{view.roomCode}</div>
         <div className="row" style={{ justifyContent: 'center', marginTop: 8 }}>
           <button className="btn" onClick={copyCode}>
-            {copied ? '✓ คัดลอกแล้ว' : '📋 คัดลอกโค้ด'}
+            {copied ? (
+              <>
+                <PixelSprite className="ico" name="check" unit={2} /> คัดลอกแล้ว
+              </>
+            ) : (
+              <>
+                <PixelSprite className="ico" name="clipboard" unit={2} /> คัดลอกโค้ด
+              </>
+            )}
           </button>
         </div>
         <p className="small muted center">
           แชร์โค้ดนี้ให้เพื่อน • เล่น {view.totalRounds} รอบ •{' '}
-          {view.mode === 'sainua' ? 'โหมดจั่วเพิ่ม 🌶️' : 'โหมดปกติ'}
+          {view.mode === 'sainua' ? (
+            <>
+              โหมดจั่วเพิ่ม <PixelSprite className="ico" name="chili" unit={2} />
+            </>
+          ) : (
+            'โหมดปกติ'
+          )}
         </p>
 
         <div className="col" style={{ marginTop: 12 }}>

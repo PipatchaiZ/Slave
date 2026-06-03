@@ -3,6 +3,7 @@ import { EV, type GameView, beats, cardId, detectCombo, isSlap, playableCardIds 
 import { socket } from '../net';
 import { sfx } from '../audio';
 import { CardFace } from './Card';
+import { PixelSprite, ROLE_SPRITE } from './pixel';
 import { MuteButton, Screen } from './shared';
 import { CircleTable } from './CircleTable';
 import { MatchOver, RoundOver } from './Results';
@@ -14,19 +15,16 @@ const COMBO_LABEL: Record<string, string> = {
   four: 'สี่ใบ',
 };
 
-// Emoji reactions: by combo played, and by role revealed at round end.
-const COMBO_EMOJI: Record<string, string> = {
-  single: '🙂',
-  pair: '😉',
-  triple: '😤',
-  four: '💣',
-};
-const ROLE_EMOJI: Record<string, string> = {
-  king: '😎',
-  queen: '😌',
-  people: '🙂',
-  viceslave: '😟',
-  slave: '😭',
+// Per-play face reactions (single/pair). Triple/four are headline (big) reactions.
+const COMBO_FACE: Record<string, string> = { single: 'face-happy', pair: 'face-wink' };
+
+// A small reaction over a seat: a pixel sprite (+ optional trailing text).
+type SmallReaction = {
+  seat: number;
+  sprite?: string;
+  colors?: Record<string, string>;
+  text?: string;
+  unit?: number;
 };
 
 export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }) {
@@ -80,7 +78,7 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
 
   // Reactions: small bubbles over seats + a big centre burst for the headline
   // events (went out / triple / four). All last 2s.
-  const [reactions, setReactions] = useState<{ key: number; seat: number; emoji: string }[]>([]);
+  const [reactions, setReactions] = useState<(SmallReaction & { key: number })[]>([]);
   const [bigReaction, setBigReaction] = useState<{
     key: number;
     emoji: string;
@@ -95,7 +93,7 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
     const prev = prevViewRef.current;
     prevViewRef.current = view;
     if (!prev) return;
-    const small: { seat: number; emoji: string }[] = [];
+    const small: SmallReaction[] = [];
     let big: { emoji: string; title: string; label: string; name: string; seat: number } | null =
       null;
 
@@ -131,7 +129,7 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
       if (!lp!.pass && lp!.combo?.kind === 'triple') sfx.slapTriple();
       else if (!lp!.pass && lp!.combo?.kind === 'four') sfx.slapFour();
       if (!(big && big.seat === lp!.seat)) {
-        if (lp!.pass) small.push({ seat: lp!.seat, emoji: '😔' });
+        if (lp!.pass) small.push({ seat: lp!.seat, sprite: 'face-sad', unit: 2 });
         else if (lp!.combo?.kind === 'triple')
           big = {
             emoji: '🔥',
@@ -148,7 +146,12 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
             name,
             seat: lp!.seat,
           };
-        else small.push({ seat: lp!.seat, emoji: COMBO_EMOJI[lp!.combo?.kind ?? ''] ?? '🙂' });
+        else
+          small.push({
+            seat: lp!.seat,
+            sprite: COMBO_FACE[lp!.combo?.kind ?? ''] ?? 'face-happy',
+            unit: 2,
+          });
       }
       // จั่วเพิ่ม mode: show "🃏+N" over every seat that actually drew cards, so
       // it's obvious the triple/four made the others draw.
@@ -157,7 +160,7 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
           const pp = prev.players.find((x) => x.id === p.id);
           if (!pp || p.seat === lp!.seat) continue;
           const drew = p.handCount - pp.handCount;
-          if (drew > 0) small.push({ seat: p.seat, emoji: `🃏+${drew}` });
+          if (drew > 0) small.push({ seat: p.seat, sprite: 'cardicon', text: `+${drew}`, unit: 2 });
         }
       }
     }
@@ -165,7 +168,13 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
     if (view.phase === 'round_over' && prev.phase !== 'round_over') {
       for (const r of view.lastRoundResult ?? []) {
         const p = view.players.find((x) => x.id === r.playerId);
-        if (p) small.push({ seat: p.seat, emoji: ROLE_EMOJI[r.role] ?? '🙂' });
+        if (p)
+          small.push({
+            seat: p.seat,
+            sprite: ROLE_SPRITE[r.role].sprite,
+            colors: ROLE_SPRITE[r.role].colors,
+            unit: 3,
+          });
       }
     }
 
@@ -250,7 +259,7 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
       return 'กำลังแลกไพ่ รอผู้เล่นเลือก…';
     }
     if (view.phase === 'playing') {
-      return yourTurn ? '★ เทิร์นของคุณ! ★' : `เทิร์นของ ${turnPlayer?.name ?? ''}`;
+      return yourTurn ? 'เทิร์นของคุณ!' : `เทิร์นของ ${turnPlayer?.name ?? ''}`;
     }
     return '';
   })();
@@ -262,12 +271,16 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
         <span className="pill">
           รอบ {view.roundNumber}/{view.totalRounds}
         </span>
-        {view.mode === 'sainua' && <span className="pill">🌶️ จั่วเพิ่ม</span>}
+        {view.mode === 'sainua' && (
+          <span className="pill">
+            <PixelSprite className="ico" name="chili" unit={2} /> จั่วเพิ่ม
+          </span>
+        )}
         <div className="spacer" />
         <MuteButton />
         {isHost ? (
           <button className="pill" onClick={() => setHostMenu(true)}>
-            ⚙ HOST
+            <PixelSprite className="ico" name="gear" unit={2} /> HOST
           </button>
         ) : (
           <button className="pill" onClick={onLeave}>
@@ -302,7 +315,8 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
               {banner}
               {view.phase === 'playing' && secs != null && (
                 <>
-                  {' · ⏱ '}
+                  {' · '}
+                  <PixelSprite className="ico" name="clock" unit={2} />{' '}
                   <span className={secs <= 5 ? 'cd warn' : 'cd'}>{secs}s</span>
                 </>
               )}
@@ -310,7 +324,9 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
 
             <div className={`hand ${yourTurn ? 'active-turn' : ''}`}>
               {view.yourHand.length === 0 ? (
-                <span className="pile-empty">คุณหมดไพ่แล้ว 🎉</span>
+                <span className="pile-empty">
+                  คุณหมดไพ่แล้ว <PixelSprite className="ico" name="party" unit={2} />
+                </span>
               ) : (
                 view.yourHand.map((c) => (
                   <CardFace
@@ -337,7 +353,9 @@ export function Table({ view, onLeave }: { view: GameView; onLeave: () => void }
                     ให้ไพ่ ({selected.size}/{pendingChoice!.count})
                   </button>
                 ) : (
-                  <span className="muted">⏳ รอการแลกไพ่…</span>
+                  <span className="muted">
+                    <PixelSprite className="ico" name="hourglass" unit={2} /> รอการแลกไพ่…
+                  </span>
                 )
               ) : (
                 <>
@@ -396,7 +414,7 @@ function HostMenu({
                     style={{ padding: '6px 8px' }}
                     onClick={() => transferAndLeave(p.id)}
                   >
-                    👑 โอน+ออก
+                    <PixelSprite className="ico" name="crown" unit={2} /> โอน+ออก
                   </button>
                   <button
                     className="btn danger"

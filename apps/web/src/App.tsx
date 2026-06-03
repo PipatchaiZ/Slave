@@ -13,6 +13,7 @@ import {
 } from './net';
 import { resumeAudio, setBgmActive, sfx } from './audio';
 import { MuteButton, Screen } from './ui/shared';
+import { PixelSprite } from './ui/pixel';
 import { Lobby } from './ui/Lobby';
 import { Table } from './ui/Table';
 import { RulesModal } from './ui/RulesModal';
@@ -109,7 +110,9 @@ export function App() {
   return (
     <>
       {!connected && !booting && !!view && (
-        <div className="netbar">⚠ ขาดการเชื่อมต่อ • กำลังเชื่อมต่อใหม่…</div>
+        <div className="netbar">
+          <PixelSprite className="ico" name="warn" unit={2} /> ขาดการเชื่อมต่อ • กำลังเชื่อมต่อใหม่…
+        </div>
       )}
       {content}
       {error && <div className="toast">{error}</div>}
@@ -178,7 +181,7 @@ function Home({ onError }: { onError: (m: string) => void }) {
       <div className="subtitle">เกมไพ่สลาฟ · 3-6 คน · ออนไลน์</div>
       <div className="row" style={{ justifyContent: 'center', gap: 8 }}>
         <button className="btn ghost" onClick={() => setShowRules(true)}>
-          📖 วิธีเล่น
+          <PixelSprite className="ico" name="cardicon" unit={2} /> วิธีเล่น
         </button>
         <MuteButton />
       </div>
@@ -193,7 +196,7 @@ function Home({ onError }: { onError: (m: string) => void }) {
           </p>
           <div className="row">
             <button className="btn primary" disabled={busy} onClick={rejoin}>
-              🔄 กลับเข้าเกม
+              <PixelSprite className="ico" name="swap" unit={2} /> กลับเข้าเกม
             </button>
             <button
               className="btn ghost"
@@ -231,7 +234,9 @@ function Home({ onError }: { onError: (m: string) => void }) {
               setMode('normal');
             }}
           >
-            <span className="mc-icon">♠</span>
+            <span className="mc-icon">
+              <PixelSprite name="spade" unit={4} />
+            </span>
             <span className="mc-title">ปกติ</span>
             <span className="mc-desc">กฎมาตรฐาน</span>
           </div>
@@ -242,7 +247,9 @@ function Home({ onError }: { onError: (m: string) => void }) {
               setMode('sainua');
             }}
           >
-            <span className="mc-icon">🌶️</span>
+            <span className="mc-icon">
+              <PixelSprite name="chili" unit={4} />
+            </span>
             <span className="mc-title">จั่วเพิ่ม</span>
             <span className="mc-desc">ลงตอง→คนอื่นจั่ว1 · สี่ใบ→จั่ว2</span>
           </div>
