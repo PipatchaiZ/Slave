@@ -3,7 +3,11 @@
 // the current player to the next one to show turn direction.
 import { type Card as CardT, type GameView, SUIT_SYMBOL, cardId } from '@slave/engine';
 import { CardFace } from './Card';
-import { ROLE_ICON, ROLE_LABEL, RoleBadge } from './shared';
+import { ROLE_LABEL, RoleBadge } from './shared';
+import { PixelSprite, RoleIcon } from './pixel';
+
+// Headline-event emoji that have a pixel sprite (small face reactions stay emoji).
+const EMOJI_SPRITE: Record<string, string> = { '🎉': 'party', '🔥': 'fire', '💣': 'bomb' };
 
 const COMBO_LABEL: Record<string, string> = {
   single: 'เดี่ยว',
@@ -46,7 +50,10 @@ function perimeterPoint(t: number): [number, number] {
 export interface Reaction {
   key: number;
   seat: number;
-  emoji: string;
+  sprite?: string; // pixel sprite name (PixelSprite)
+  colors?: Record<string, string>;
+  text?: string; // trailing text (e.g. "+2" on a draw) or a plain-text fallback
+  unit?: number;
 }
 
 export interface BigReaction {
@@ -119,14 +126,14 @@ export function CircleTable({
         <defs>
           <marker
             id="dir-arrowhead"
-            markerWidth="6"
-            markerHeight="6"
-            refX="3"
-            refY="3"
+            markerWidth="4.5"
+            markerHeight="4.5"
+            refX="2.25"
+            refY="2.25"
             orient="auto"
             markerUnits="userSpaceOnUse"
           >
-            <path className="dir-head" d="M0,0 L6,3 L0,6 Z" />
+            <path className="dir-head" d="M0,0 L4.5,2.25 L0,4.5 Z" />
           </marker>
         </defs>
         {arcPath && <path className="dir-path" d={arcPath} markerEnd="url(#dir-arrowhead)" />}
@@ -135,15 +142,35 @@ export function CircleTable({
       <div className="rect-pile">
         {view.phase === 'exchange' && view.exchange ? (
           <div className="exchange-box">
-            <div className="exchange-title">🔄 เฟสแลกไพ่</div>
+            <div className="exchange-title">
+              <PixelSprite className="ico" name="swap" unit={2} /> เฟสแลกไพ่
+            </div>
             {view.exchange.choices.map((ch, i) => {
               const from = view.players.find((p) => p.id === ch.fromId);
               const to = view.players.find((p) => p.id === ch.toId);
               return (
                 <div key={i} className="exchange-row">
-                  {from?.role ? `${ROLE_ICON[from.role]} ${ROLE_LABEL[from.role]}` : '?'} →{' '}
-                  {to?.role ? `${ROLE_ICON[to.role]} ${ROLE_LABEL[to.role]}` : '?'} · {ch.count} ใบ{' '}
-                  {ch.submitted ? '✓' : '⏳'}
+                  {from?.role ? (
+                    <>
+                      <RoleIcon role={from.role} /> {ROLE_LABEL[from.role]}
+                    </>
+                  ) : (
+                    '?'
+                  )}{' '}
+                  →{' '}
+                  {to?.role ? (
+                    <>
+                      <RoleIcon role={to.role} /> {ROLE_LABEL[to.role]}
+                    </>
+                  ) : (
+                    '?'
+                  )}{' '}
+                  · {ch.count} ใบ{' '}
+                  {ch.submitted ? (
+                    <PixelSprite className="ico" name="check" unit={2} />
+                  ) : (
+                    <PixelSprite className="ico" name="hourglass" unit={2} />
+                  )}
                 </div>
               );
             })}
@@ -200,11 +227,29 @@ export function CircleTable({
               <div className="seat-badges">
                 <RoleBadge role={liveRole} prev={carryOver} />
               </div>
-              <div className="seat-meta">🃏{p.handCount}·⭐{p.score}</div>
               <div className="seat-meta">
-                {!p.connected && <span className="offline-tag">⚠ หลุด </span>}
-                {p.finished && '✓ หมดมือ '}
-                {view.defendingKingId === p.id && '🛡 ป้องกัน '}
+                <PixelSprite name="cardicon" unit={2} outline="var(--card-black)" />
+                {p.handCount}
+                <span className="dot-sep">·</span>
+                <PixelSprite name="star" unit={2} />
+                {p.score}
+              </div>
+              <div className="seat-meta">
+                {!p.connected && (
+                  <span className="seat-flag offline-tag">
+                    <PixelSprite className="ico" name="warn" unit={2} />หลุด
+                  </span>
+                )}
+                {p.finished && (
+                  <span className="seat-flag">
+                    <PixelSprite className="ico" name="check" unit={2} />หมดมือ
+                  </span>
+                )}
+                {view.defendingKingId === p.id && (
+                  <span className="seat-flag">
+                    <PixelSprite className="ico" name="shield" unit={2} />ป้องกัน
+                  </span>
+                )}
                 {view.hostId === p.id && <span className="host-text">host</span>}
               </div>
               <div className={`seat-status ${act ? (act.pass ? 'passed' : 'played') : 'muted'}`}>
@@ -219,7 +264,10 @@ export function CircleTable({
         const [x, y] = perimeterPoint(dispIndex(r.seat) / n);
         return (
           <div key={r.key} className="reaction" style={{ left: `${x}%`, top: `${y}%` }}>
-            {r.emoji}
+            {r.sprite && (
+              <PixelSprite name={r.sprite} colors={r.colors} unit={r.unit ?? 3} outline="var(--bg)" />
+            )}
+            {r.text}
           </div>
         );
       })}
@@ -228,7 +276,13 @@ export function CircleTable({
 
       {bigReaction && (
         <div key={bigReaction.key} className="big-reaction">
-          <div className="big-emoji">{bigReaction.emoji}</div>
+          <div className="big-emoji">
+            {EMOJI_SPRITE[bigReaction.emoji] ? (
+              <PixelSprite name={EMOJI_SPRITE[bigReaction.emoji]} unit={7} outline="var(--shadow)" />
+            ) : (
+              bigReaction.emoji
+            )}
+          </div>
           <div className="big-title">{bigReaction.title}</div>
           <div className="big-label">
             {bigReaction.name} · {bigReaction.label}

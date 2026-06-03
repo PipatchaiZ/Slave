@@ -1,6 +1,7 @@
 import { type ReactNode, useState } from 'react';
 import { isMuted, setMuted, sfx } from '../audio';
 import type { Role } from '@slave/engine';
+import { PixelSprite, ROLE_SPRITE } from './pixel';
 
 export function Screen({ children }: { children: ReactNode }) {
   return <div className="screen">{children}</div>;
@@ -14,30 +15,17 @@ export const ROLE_LABEL: Record<Role, string> = {
   slave: 'SLAVE',
 };
 
-/** Identity icon shown in front of each role for at-a-glance recognition. */
-export const ROLE_ICON: Record<Role, string> = {
-  king: '👑',
-  queen: '👸',
-  people: '🧑',
-  viceslave: '🙇',
-  slave: '⛓️',
-};
-
-/** "👑 KING" — icon + label with a normal space (regular-width contexts). */
-export function roleText(role: Role): string {
-  return `${ROLE_ICON[role]} ${ROLE_LABEL[role]}`;
-}
-
 export function RoleBadge({ role, prev }: { role: Role | null; prev?: boolean }) {
   if (!role) return null;
-  // A non-breaking space glues the icon to the label so the icon never orphans
-  // onto its own line; a long label like VICE-SLAVE may still wrap at its hyphen.
-  const nbsp = String.fromCharCode(0xa0);
   // `prev` = a carry-over position from the previous round (not yet decided this
   // round) — rendered faded + with a "↩" so it isn't read as the live standing.
+  // Pixel icon + label on one line; the label never wraps (ellipsis if too long).
+  const rs = ROLE_SPRITE[role];
   return (
     <span className={`badge ${role}${prev ? ' prev' : ''}`}>
-      {(prev ? '↩' + nbsp : '') + ROLE_ICON[role] + nbsp + ROLE_LABEL[role]}
+      {prev && <span className="badge-prev">↩</span>}
+      <PixelSprite name={rs.sprite} colors={rs.colors} unit={2} outline="var(--shadow)" />
+      <span className="role-text">{ROLE_LABEL[role]}</span>
     </span>
   );
 }
@@ -54,7 +42,15 @@ export function MuteButton() {
         if (!next) sfx.click();
       }}
     >
-      {m ? '🔇 OFF' : '🔊 ON'}
+      {m ? (
+        <>
+          <PixelSprite className="ico" name="speaker-off" unit={2} /> OFF
+        </>
+      ) : (
+        <>
+          <PixelSprite className="ico" name="speaker-on" unit={2} /> ON
+        </>
+      )}
     </button>
   );
 }

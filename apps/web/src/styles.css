@@ -12,9 +12,14 @@
   --card-red: #d22f3a;
   --card-black: #181425;
   --shadow: #000;
-  /* Latin/digits/title stay pixel (Press Start 2P); Thai falls back to a
-     legible Thai face so it isn't tiny. */
-  font-family: 'Press Start 2P', 'IBM Plex Sans Thai', monospace;
+  --orange: #ef7d57;
+  --pink: #ff8fd0;
+  /* Base pixel unit — pixel sprites snap to integer multiples of this. */
+  --px: 4px;
+  /* Latin/digits/title stay pixel (Press Start 2P); Thai uses Chakra Petch
+     (geometric, OFL) — closer to pixel art than the old humanist fallback.
+     IBM Plex Sans Thai kept last as a glyph-coverage safety net. */
+  font-family: 'Press Start 2P', 'Chakra Petch', 'IBM Plex Sans Thai', monospace;
 }
 
 /* Give Thai text a slight size + weight boost for readability, since the pixel
@@ -320,12 +325,27 @@ label {
   background: var(--panel-light);
 }
 
+/* Pixel role badge: dark chip + pixel icon + label on one line. The role colour
+   moves to the border (and the icon sprite) so a same-coloured sprite doesn't
+   vanish into the chip. Label never wraps — ellipsis if a seat is too narrow. */
 .badge {
-  display: inline-block;
-  font-size: 10px;
-  padding: 3px 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  font-size: 9px;
+  padding: 2px 5px;
   border: 2px solid var(--shadow);
-  color: #000;
+  background: #11132a;
+  color: var(--ink);
+}
+.role-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.badge-prev {
+  color: var(--muted);
 }
 /* Carry-over (previous-round) position while this round is still undecided. */
 .badge.prev {
@@ -333,19 +353,19 @@ label {
   border-style: dashed;
 }
 .badge.king {
-  background: var(--yellow);
+  border-color: var(--yellow);
 }
 .badge.queen {
-  background: #ff8fd0;
+  border-color: var(--pink);
 }
 .badge.people {
-  background: #a7f070;
+  border-color: #a7f070;
 }
 .badge.viceslave {
-  background: #c98fb0;
+  border-color: #c98fb0;
 }
 .badge.slave {
-  background: #b1a7a6;
+  border-color: #b1a7a6;
 }
 
 .pile {
@@ -416,7 +436,9 @@ label {
   position: absolute;
   inset: 16%;
   border: 4px solid var(--shadow);
-  background: linear-gradient(#234a72, #15243a);
+  /* dithered felt (2-tone checker) instead of a smooth gradient */
+  background: repeating-conic-gradient(#234a72 0 25%, #1d3f63 0 50%);
+  background-size: calc(2 * var(--px)) calc(2 * var(--px));
   box-shadow: inset 0 0 0 3px #ffffff1f, inset 0 0 0 7px #112038, 0 6px 0 var(--shadow);
 }
 .rect-pile {
@@ -443,15 +465,23 @@ label {
   overflow: visible;
   /* Fade the whole layer once (flattened) so the arrowhead sits opaquely over
      the line instead of the line showing through a semi-transparent head. */
-  opacity: 0.5;
+  opacity: 0.6;
+  /* Hard pixel edges (no anti-aliasing) so the loop reads as pixel art. */
+  shape-rendering: crispEdges;
 }
-/* Thin yellow loop around the table showing which way the turn rotates. */
+/* Yellow pixel-dashed loop around the table showing which way the turn rotates.
+   non-scaling-stroke keeps the width + dash uniform in screen pixels despite the
+   non-uniform (preserveAspectRatio:none) viewBox scaling — so dashes are even on
+   every edge instead of stretched on the horizontals. */
 .dir-path {
   fill: none;
   stroke: var(--yellow);
-  stroke-width: 1;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  stroke-width: 2;
+  stroke-linecap: butt;
+  stroke-linejoin: miter;
+  vector-effect: non-scaling-stroke;
+  /* small even pixel dashes */
+  stroke-dasharray: 2 3;
 }
 .dir-head {
   fill: var(--yellow);
@@ -622,14 +652,8 @@ label {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  font-size: 20px;
-  line-height: 1;
-}
-.card.sm .card-suit {
-  font-size: 15px;
-}
-.card.lg .card-suit {
-  font-size: 30px;
+  /* line-height:0 kills the baseline strut so the pixel pip sits dead-centre */
+  line-height: 0;
 }
 /* Bottom-right index, rotated 180° like a real card, flush to the right edge. */
 .card-rank.bottom {
@@ -655,6 +679,28 @@ label {
   background: repeating-linear-gradient(45deg, #3b5dc9, #3b5dc9 6px, #29366f 6px, #29366f 12px);
   color: transparent;
   cursor: default;
+}
+/* pixel card back: dithered checker pattern (emblem sprite centred via .card-suit) */
+.card.back.pixelback {
+  background: repeating-conic-gradient(#3b5dc9 0 25%, #29366f 0 50%);
+  background-size: calc(2 * var(--px)) calc(2 * var(--px));
+}
+
+/* ---- pixel sprites (box-shadow art, see ui/pixel.tsx) ---- */
+.sprite {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+.sprite > i {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+/* inline sprites (hand-count / score in a seat) align with the adjacent text */
+.seat-meta .sprite {
+  vertical-align: middle;
+  margin: 0 1px;
 }
 
 .stack {
@@ -792,18 +838,44 @@ table.results tr.regicide td {
   color: var(--red);
   font-weight: bold;
 }
+/* Bare pixel reaction (no chip) — the sprite carries its own outline so it
+   reads on the felt/seats; trailing text gets a hard pixel shadow. */
 .reaction {
   position: absolute;
   z-index: 9;
-  font-size: 22px;
-  line-height: 1;
-  background: #11132a;
-  border: 3px solid var(--shadow);
-  box-shadow: 0 3px 0 var(--shadow);
-  padding: 3px 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  font-size: 13px;
+  line-height: 0;
+  color: var(--ink);
+  text-shadow: 2px 2px 0 #000;
   pointer-events: none;
   transform-origin: center bottom;
   animation: react-pop 2s steps(10, end) forwards;
+}
+/* inline icons sized to sit in flowing text (role icons, status glyphs) */
+.role-icon,
+.ico {
+  vertical-align: middle;
+  margin: 0 2px;
+}
+/* A seat status flag: icon + label glued together (never split across lines),
+   with a tight, controlled gap (overrides the inline .ico side margins). */
+.seat-flag {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+  margin-right: 6px;
+}
+.seat-flag .ico {
+  margin: 0;
+}
+/* "·" separator between the hand-count and score stats — breathing room each side */
+.dot-sep {
+  margin: 0 5px;
+  color: var(--muted);
 }
 @keyframes react-pop {
   0% { transform: translate(-50%, -80%) scale(0.2); opacity: 0; }

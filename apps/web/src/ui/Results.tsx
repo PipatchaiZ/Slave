@@ -1,7 +1,8 @@
 import { EV, type GameView } from '@slave/engine';
 import { socket } from '../net';
 import { sfx } from '../audio';
-import { ROLE_ICON, ROLE_LABEL } from './shared';
+import { ROLE_LABEL } from './shared';
+import { PixelSprite, RoleIcon } from './pixel';
 
 export function RoundOver({ view }: { view: GameView }) {
   const isHost = view.hostId === view.yourId;
@@ -27,7 +28,7 @@ export function RoundOver({ view }: { view: GameView }) {
       </div>
       {rows.some((r) => r.regicided) && (
         <p className="small" style={{ color: 'var(--yellow)' }}>
-          ⚔ King ถูกโค่น! ถูกดันลงเป็น Slave
+          <PixelSprite className="ico" name="swords" unit={2} /> King ถูกโค่น! ถูกดันลงเป็น Slave
         </p>
       )}
     </div>
@@ -39,7 +40,9 @@ export function MatchOver({ view, onLeave }: { view: GameView; onLeave: () => vo
   const champ = standings[0];
   return (
     <div className="panel" style={{ maxWidth: 560 }}>
-      <h2>จบการแข่งขัน 👑</h2>
+      <h2>
+        จบการแข่งขัน <PixelSprite className="ico" name="crown" unit={2} />
+      </h2>
       <p className="center" style={{ color: 'var(--yellow)', fontSize: 14 }}>
         แชมป์: {champ?.name}
       </p>
@@ -56,8 +59,7 @@ export function MatchOver({ view, onLeave }: { view: GameView; onLeave: () => vo
             <tr key={p.id}>
               <td>{i + 1}</td>
               <td>
-                {p.role ? `${ROLE_ICON[p.role]} ` : ''}
-                {p.name}
+                {p.role && <RoleIcon role={p.role} />} {p.name}
                 {p.isYou ? ' (คุณ)' : ''}
               </td>
               <td>{p.score}</td>
@@ -92,11 +94,16 @@ function ResultTable({ view }: { view: GameView }) {
           return (
             <tr key={r.playerId} className={r.regicided ? 'regicide' : ''}>
               <td>
-                {ROLE_ICON[r.role]} {ROLE_LABEL[r.role]}
-                {r.regicided ? ' ⚔' : ''}
+                <RoleIcon role={r.role} /> {ROLE_LABEL[r.role]}
+                {r.regicided && (
+                  <>
+                    {' '}
+                    <PixelSprite className="ico" name="swords" unit={2} />
+                  </>
+                )}
               </td>
               <td>
-                {ROLE_ICON[r.role]} {r.name}
+                <RoleIcon role={r.role} /> {r.name}
                 {p?.isYou ? ' (คุณ)' : ''}
               </td>
               <td>+{r.pointsAwarded}</td>
